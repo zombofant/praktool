@@ -12,6 +12,7 @@ class Identity(object):
     Used as a magic value for bypassing the operation of MapColumn objects.
     """
 
+
 def iterColumns(columns):
     """
     Iterate over a sequence of columns and yield dict compatible to sympys subs
@@ -27,6 +28,7 @@ def iterColumns(columns):
         for symbol, iterable in myColumns:
             values[symbol] = next(iterable)
         yield values
+
 
 class TableColumn(object):
     """
@@ -90,6 +92,7 @@ class TableColumn(object):
         for row in self:
             yield (row * unify, unitName)
 
+
 class MapColumn(TableColumn):
     def __init__(self, symbol, unit, operation, defaultMagnitude=None,
             title=None, **kwargs):
@@ -103,6 +106,7 @@ class MapColumn(TableColumn):
         if self.operation is None:
             return data
         return itertools.imap(self.operation, data)
+
 
 class DataColumn(MapColumn):
     """
@@ -127,6 +131,7 @@ class DataColumn(MapColumn):
     def dataHash(self):
         return self.data
 
+
 class CachedColumn(TableColumn):
     def __init__(self, symbol, unit, referenceColumns, **kwargs):
         super(CachedColumn, self).__init__(symbol, unit, **kwargs)
@@ -136,6 +141,7 @@ class CachedColumn(TableColumn):
     def getReference(self, referenceColumn):
         # no caching yet :)
         return referenceColumn.__iter__()
+
 
 class DerivatedColumn(CachedColumn):
     def __init__(self, symbol, unit, referenceColumns, sympyExpr, defaultMagnitude=None,
@@ -150,6 +156,7 @@ class DerivatedColumn(CachedColumn):
     def __iter__(self):
         for rowValues in iterColumns(self.referenceColumns):
             yield self.sympyExpr.subs(rowValues)
+
 
 class Table(object):
     """
