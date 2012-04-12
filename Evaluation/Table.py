@@ -1,5 +1,6 @@
 # encoding=utf-8
 from __future__ import unicode_literals, division, print_function
+from our_future import *
 
 import abc
 import itertools
@@ -10,6 +11,22 @@ class Identity(object):
     """
     Used as a magic value for bypassing the operation of MapColumn objects.
     """
+
+def iterColumns(columns):
+    """
+    Iterate over a sequence of columns and yield dict compatible to sympys subs
+    method for each row in the columns.
+
+    Stops as soon as the first column runs out of data. Throws a ValueError
+    exception if the columns have different :func:`len` values.
+    """
+    l = len(next(iter(columns)))
+    myColumns = [(column.symbol, iter(column)) for column in columns]
+    for i in xrange(l):
+        values = dict()
+        for symbol, iterable in myColumns:
+            values[symbol] = next(iterable)
+        yield values
 
 class TableColumn(object):
     """
@@ -76,14 +93,14 @@ class TableColumn(object):
 class MapColumn(TableColumn):
     def __init__(self, symbol, unit, operation, defaultMagnitude=None,
             title=None, **kwargs):
-        super(MapColumn, self).__init__(self, symbol, unit,
+        super(MapColumn, self).__init__(symbol, unit,
             defaultMagnitude=defaultMagnitude, title=title, **kwargs)
         if not hasattr(operation, "__call__"):
             raise TypeError("operation must be callable.")
-        self.operation = operation if operation is not 
+        self.operation = operation if operation is not Identity else None
 
     def _mapData(self, data):
-        if self.operation is Identity:
+        if self.operation is None:
             return data
         return itertools.imap(self.operation, data)
 
@@ -114,18 +131,25 @@ class CachedColumn(TableColumn):
     def __init__(self, symbol, unit, referenceColumns, **kwargs):
         super(CachedColumn, self).__init__(symbol, unit, **kwargs)
         self.referenceColumns = frozenset(referenceColumns)
+        # self.cacheToken = 
 
-    def cacheValid(self):
+    def getReference(self, referenceColumn):
+        # no caching yet :)
+        return referenceColumn.__iter__()
 
-class DerivatedColumn(TableColumn):
-    def __init__(self, symbol, unit, sources, sympyExpr, defaultMagnitude=None,
+class DerivatedColumn(CachedColumn):
+    def __init__(self, symbol, unit, referenceColumns, sympyExpr, defaultMagnitude=None,
             title=None, **kwargs):
-        super(DerivatedColumn, self).__init__(symbol, unit, operation,
+        super(DerivatedColumn, self).__init__(symbol, unit, referenceColumns,
             defaultMagnitude=defaultMagnitude, title=title, **kwargs)
+        self.sympyExpr = sympyExpr
 
-        self.sources = frozenset(sources)
+    def __len__(self):
+        return max((len(col) for col in self.referenceColumns))
 
-    def __iter__
+    def __iter__(self):
+        for rowValues in iterColumns(self.referenceColumns):
+            yield self.sympyExpr.subs(rowValues)
 
 class Table(object):
     """
