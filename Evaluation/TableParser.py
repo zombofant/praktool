@@ -1,7 +1,7 @@
 # encoding=utf-8
 from __future__ import unicode_literals, division, print_function
 
-import warning
+import warnings
 import csv
 
 import sympy
@@ -78,7 +78,7 @@ def ParseGnuplot(data, cols=None, annotation='%', header_sep=None):
                 if cols is None:
                     cols = []
                 else:
-                    warning.warn('In file column specification ignored!')
+                    warnings.warn('In file column specification ignored!')
                     continue
 
                 fields = line[2:].strip().split(header_sep)
