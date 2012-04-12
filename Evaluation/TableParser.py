@@ -68,7 +68,15 @@ def ParseGnuplot(data, cols=None, annotation='%', header_sep=None):
     *header_sep* is the seperator used to split the column name and
      unit annotation. The default is `None`, so split is on any
      whitespace.
-    """
+
+     A table could look like:
+
+         #% t/s x/m
+         0.0 0.0
+         1.0 1.0
+         2.0 4.0
+         3.0 9.0
+     """
 
     for line in data:
         line = line.strip()
