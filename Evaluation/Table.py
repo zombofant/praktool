@@ -12,6 +12,7 @@ class Identity(object):
     Used as a magic value for bypassing the operation of MapColumn objects.
     """
 
+
 def iterColumns(columns):
     """
     Iterate over a sequence of columns and yield dict compatible to sympys subs
@@ -27,6 +28,7 @@ def iterColumns(columns):
         for symbol, iterable in myColumns:
             values[symbol] = next(iterable)
         yield values
+
 
 class TableColumn(object):
     """
@@ -90,6 +92,7 @@ class TableColumn(object):
         for row in self:
             yield (row * unify, unitName)
 
+
 class MapColumn(TableColumn):
     def __init__(self, symbol, unit, operation, defaultMagnitude=None,
             title=None, **kwargs):
@@ -108,6 +111,7 @@ class MapColumn(TableColumn):
         if self.operation is None:
             return data
         return itertools.imap(self.operation, data)
+
 
 class DataColumn(MapColumn):
     """
@@ -135,6 +139,7 @@ class DataColumn(MapColumn):
     def appendRow(self, data):
         self.data.append(self._mapSingle(data))
 
+
 class CachedColumn(TableColumn):
     def __init__(self, symbol, unit, referenceColumns, **kwargs):
         super(CachedColumn, self).__init__(symbol, unit, **kwargs)
@@ -144,6 +149,7 @@ class CachedColumn(TableColumn):
     def getReference(self, referenceColumn):
         # no caching yet :)
         return referenceColumn.__iter__()
+
 
 class DerivatedColumn(CachedColumn):
     def __init__(self, symbol, unit, referenceColumns, sympyExpr, defaultMagnitude=None,
@@ -159,19 +165,36 @@ class DerivatedColumn(CachedColumn):
         for rowValues in iterColumns(self.referenceColumns):
             yield self.sympyExpr.subs(rowValues)
 
+
 class Table(object):
     """
     Maintains a measurement table representation.
-
-    *title* is used as a title whenever a document representation is created
-    from the table object. Some backends may also support *caption* for a more
-    detailed description.
-
-    *caption* defaults to *title*.
     """
 
-    def __init__(self, title, caption=None, **kwargs):
+    def __init__(self, columns=(), **kwargs):
         super(Table, self).__init__(**kwargs)
-        self.title = title
-        self.caption = caption
+        self.columns = {}
+        self.symbolNames = {}
+        for column in columns:
+            self.addColumn(column)
+
+    def add(self, column):
+        # look closer ... closer ... SETDEFAULT!
+        if not self.columns.setdefault(column.symbol, column) is column:
+            raise KeyError("Duplicate symbol: {0}".format(column.symbol))
+        self.symbolNames[unicode(column.symbol)] = column.symbol
+
+    def __getitem__(self, symbol_or_name):
+        if isinstance(symbol_or_name, (unicode, str)):
+            return self.columns[self.symbolNames[symbol_or_name]]
+        else:
+            return self.columns[symbol_or_name]
+
+    def __delitem__(self, symbol_or_name):
+        if isinstance(symbol_or_name, (unicode, str)):
+            symbol = self.symbolNames[symbol_or_name]
+        else:
+            symbol = symbol_or_name
+        del self.symbolNames[unicode(symbol)]
+        del self.columns[symbol]
 
