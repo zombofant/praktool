@@ -82,6 +82,11 @@ class MapColumn(TableColumn):
             raise TypeError("operation must be callable.")
         self.operation = operation if operation is not 
 
+    def _mapSingle(self, data):
+        if self.operation is None:
+            return data
+        return self.operation(data)
+
     def _mapData(self, data):
         if self.operation is Identity:
             return data
@@ -109,6 +114,9 @@ class DataColumn(MapColumn):
 
     def dataHash(self):
         return self.data
+
+    def appendRow(self, data):
+        self.data.append(self._mapSingle(data))
 
 class CachedColumn(TableColumn):
     def __init__(self, symbol, unit, referenceColumns, **kwargs):
