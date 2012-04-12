@@ -161,16 +161,31 @@ class DerivatedColumn(CachedColumn):
 class Table(object):
     """
     Maintains a measurement table representation.
-
-    *title* is used as a title whenever a document representation is created
-    from the table object. Some backends may also support *caption* for a more
-    detailed description.
-
-    *caption* defaults to *title*.
     """
     
-    def __init__(self, title, caption=None, **kwargs):
+    def __init__(self, columns=(), **kwargs):
         super(Table, self).__init__(**kwargs)
-        self.title = title
-        self.caption = caption
-        
+        self.columns = {}
+        self.symbolNames = {}
+        for column in columns:
+            self.addColumn(column)
+
+    def add(self, column):
+        # look closer ... closer ... SETDEFAULT!
+        if not self.columns.setdefault(column.symbol, column) is column:
+            raise KeyError("Duplicate symbol: {0}".format(column.symbol))
+        self.symbolNames[unicode(column.symbol)] = column.symbol
+
+    def __getitem__(self, symbol_or_name):
+        if isinstance(symbol_or_name, (unicode, str)):
+            return self.columns[self.symbolNames[symbol_or_name]]
+        else:
+            return self.columns[symbol_or_name]
+
+    def __delitem__(self, symbol_or_name):
+        if isinstance(symbol_or_name, (unicode, str)):
+            symbol = self.symbolNames[symbol_or_name]
+        else:
+            symbol = symbol_or_name
+        del self.symbolNames[unicode(symbol)]
+        del self.columns[symbol]
