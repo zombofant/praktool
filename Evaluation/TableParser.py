@@ -30,8 +30,8 @@ def ParseCSV(data, cols=None, dialect=None):
     for fields in csv.reader(lines, dialect=dialect):
         if first:
             for field in fields:
-                name, unit = field.split('/', 1)
-                cols.append(Table.DataColumn(sympy.Symbol(name), unit, []))
+                name, unit = field.split(b'/', 1)
+                cols.append(Table.DataColumn(sympy.Symbol(name), unit, [], defaultMagnitude=1))
         else:
             if len(fields) != len(cols):
                 raise Error('Invalid Table: Incorrect number of columns')
@@ -45,6 +45,7 @@ def ParseCSV(data, cols=None, dialect=None):
                 col.appendRow(dataItemAsNumber * col.unitExpr)
 
         first = False
+    return cols
 
 def ParseGnuplot(data, cols=None, annotation='%', header_sep=None):
     """
@@ -83,8 +84,8 @@ def ParseGnuplot(data, cols=None, annotation='%', header_sep=None):
 
                 fields = line[2:].strip().split(header_sep)
                 for field in fields:
-                    name, unit = field.split('/', 1)
-                    cols.append(Table.DataColumn(sympy.Symbol(name), unit, []))
+                    name, unit = field.split(b'/', 1)
+                    cols.append(Table.DataColumn(sympy.Symbol(name), unit, [], defaultMagnitude=1))
 
             continue
 
@@ -101,4 +102,4 @@ def ParseGnuplot(data, cols=None, annotation='%', header_sep=None):
 
                 col.appendRow(dataItemAsNumber * col.unitExpr)
 
-        return cols
+    return cols
