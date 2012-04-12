@@ -1,7 +1,7 @@
 # encoding=utf-8
 from __future__ import unicode_literals, division, print_function
 
-import warning
+import warnings
 import csv
 
 import sympy
@@ -12,17 +12,51 @@ import Table
 class Error(Exception):
     pass
 
-def ParseCSV(data, cols):
+def ParseCSV(data, cols=None, dialect=None):
+    """
+    Parse a data file in the csv format.
 
+    *data* is an iterable returning the lines of the file.
+
+    If *cols* is not `None`, it has to be an sequence of
+    :class:`Table.DataColumns`, if it is `None` the columns are
+    generated from the first row of the file.
+
+    *dialect* is passed to the `csv.reader` constructor as dialect
+     argument.
+    """
+    # only handle the first line different if no cols are given
+    first = cols is None
+    for fields in csv.reader(lines, dialect=dialect):
+        if first:
+            for field in fields:
+                name, unit = field.split(b'/', 1)
+                cols.append(Table.DataColumn(sympy.Symbol(name), unit, [],
+                                             defaultMagnitude=1))
+        else:
+            if len(fields) != len(cols):
+                raise Error('Invalid Table: Incorrect number of columns')
+
+            for col, field in zip(cols, fields):
+                try:
+                    dataItemAsNumber = int(field)
+                except ValueError:
+                    dataItemAsNumber = float(field)
+
+                col.appendRow(dataItemAsNumber * col.unitExpr)
+
+        first = False
+    return cols
 
 def ParseGnuplot(data, cols=None, annotation='%', header_sep=None):
     """
     Parse a data file in the gnuplot format with additional
-    annotations for column names and units.
+    annotations for column names and units. Return the list of
+    :class:`Table.DataColumns` objects.
 
     `#` is used to introduce comment line.
 
-    *data* is an iterable returning the lines of the column.
+    *data* is an iterable returning the lines of the file.
 
     If *cols* is not `None`, it has to be an sequence of
     :class:`Table.DataColumns`, if it is `None` the columns are
@@ -34,7 +68,15 @@ def ParseGnuplot(data, cols=None, annotation='%', header_sep=None):
     *header_sep* is the seperator used to split the column name and
      unit annotation. The default is `None`, so split is on any
      whitespace.
-    """
+
+     A table could look like:
+
+         #% t/s x/m
+         0.0 0.0
+         1.0 1.0
+         2.0 4.0
+         3.0 9.0
+     """
 
     for line in data:
         line = line.strip()
@@ -46,27 +88,28 @@ def ParseGnuplot(data, cols=None, annotation='%', header_sep=None):
                 if cols is None:
                     cols = []
                 else:
-                    warning.warn('In file column specification ignored!')
+                    warnings.warn('In file column specification ignored!')
                     continue
 
-                cols = line[2:].strip().split(header_sep)
-                for col in cols:
-                    name, unit = col.split('/', 1)
-                    col.append(Table.DataColumn(sympy.symbol(name), unit, []))
+                fields = line[2:].strip().split(header_sep)
+                for field in fields:
+                    name, unit = field.split(b'/', 1)
+                    cols.append(Table.DataColumn(sympy.Symbol(name), unit, [],
+                                                 defaultMagnitude=1))
 
             continue
 
         else:
-            lineData = line.split()
-            if len(lineData) != len(cols):
-                raise Error('Invalid Table: Uncorrect number of columns')
+            fields = line.split()
+            if len(fields) != len(cols):
+                raise Error('Invalid Table: Incorrect number of columns')
 
-            for col, dataItem in zip(cols, lineData):
+            for col, field in zip(cols, fields):
                 try:
-                    dataItemAsNumber = int(dataItem)
+                    dataItemAsNumber = int(field)
                 except ValueError:
-                    dataItemAsNumber = float(dataItem)
+                    dataItemAsNumber = float(field)
 
                 col.appendRow(dataItemAsNumber * col.unitExpr)
 
-        return cols
+    return cols

@@ -50,7 +50,7 @@ class TableColumn(object):
 
     One can create an iterable over the rows of a table column by calling
     :func:`iter` on a :class:`TableColumn` instance.
-    
+
     You may override the :func:`TableColumn.dataHash` method to reflect changes
     in the data stored in the column. This helps for caching calculated data.
     You may return a value of arbitary type, but it must be hashable and
@@ -144,7 +144,7 @@ class CachedColumn(TableColumn):
     def __init__(self, symbol, unit, referenceColumns, **kwargs):
         super(CachedColumn, self).__init__(symbol, unit, **kwargs)
         self.referenceColumns = frozenset(referenceColumns)
-        # self.cacheToken = 
+        # self.cacheToken =
 
     def getReference(self, referenceColumn):
         # no caching yet :)
@@ -170,7 +170,7 @@ class Table(object):
     """
     Maintains a measurement table representation.
     """
-    
+
     def __init__(self, columns=(), **kwargs):
         super(Table, self).__init__(**kwargs)
         self.columns = {}
@@ -197,3 +197,4 @@ class Table(object):
             symbol = symbol_or_name
         del self.symbolNames[unicode(symbol)]
         del self.columns[symbol]
+
