@@ -49,11 +49,12 @@ def ParseCSV(data, cols=None, dialect=None):
 def ParseGnuplot(data, cols=None, annotation='%', header_sep=None):
     """
     Parse a data file in the gnuplot format with additional
-    annotations for column names and units.
+    annotations for column names and units. Return the list of
+    :class:`Table.DataColumns` objects.
 
     `#` is used to introduce comment line.
 
-    *data* is an iterable returning the lines of the column.
+    *data* is an iterable returning the lines of the file.
 
     If *cols* is not `None`, it has to be an sequence of
     :class:`Table.DataColumns`, if it is `None` the columns are
@@ -80,23 +81,23 @@ def ParseGnuplot(data, cols=None, annotation='%', header_sep=None):
                     warning.warn('In file column specification ignored!')
                     continue
 
-                cols = line[2:].strip().split(header_sep)
-                for col in cols:
-                    name, unit = col.split('/', 1)
-                    col.append(Table.DataColumn(sympy.symbol(name), unit, []))
+                fields = line[2:].strip().split(header_sep)
+                for field in fields:
+                    name, unit = field.split('/', 1)
+                    cols.append(Table.DataColumn(sympy.symbol(name), unit, []))
 
             continue
 
         else:
-            lineData = line.split()
-            if len(lineData) != len(cols):
-                raise Error('Invalid Table: Uncorrect number of columns')
+            fields = line.split()
+            if len(fields) != len(cols):
+                raise Error('Invalid Table: Incorrect number of columns')
 
-            for col, dataItem in zip(cols, lineData):
+            for col, field in zip(cols, fields):
                 try:
-                    dataItemAsNumber = int(dataItem)
+                    dataItemAsNumber = int(field)
                 except ValueError:
-                    dataItemAsNumber = float(dataItem)
+                    dataItemAsNumber = float(field)
 
                 col.appendRow(dataItemAsNumber * col.unitExpr)
 
