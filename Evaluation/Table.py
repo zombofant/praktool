@@ -176,7 +176,7 @@ class Table(object):
         self.columns = {}
         self.symbolNames = {}
         for column in columns:
-            self.addColumn(column)
+            self.add(column)
 
     def add(self, column):
         # look closer ... closer ... SETDEFAULT!

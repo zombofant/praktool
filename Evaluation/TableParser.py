@@ -91,7 +91,7 @@ def ParseGnuplot(data, cols=None, annotation='%', header_sep=None):
                     warnings.warn('In file column specification ignored!')
                     continue
 
-                fields = line[2:].strip().split(header_sep)
+                fields = (x for x in line[2:].strip().split(header_sep) if x)
                 for field in fields:
                     name, unit = field.split(b'/', 1)
                     cols.append(Table.DataColumn(sympy.Symbol(name), unit, [],
