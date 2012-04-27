@@ -13,7 +13,7 @@ class Identity(object):
     """
 
 
-def iterColumns(columns):
+class ColumnsIterator(object):
     """
     Iterate over a sequence of columns and yield dict compatible to sympys subs
     method for each row in the columns.
@@ -21,13 +21,37 @@ def iterColumns(columns):
     Stops as soon as the first column runs out of data. Throws a ValueError
     exception if the columns have different :func:`len` values.
     """
-    l = len(next(iter(columns)))
-    myColumns = [(column.symbol, iter(column)) for column in columns]
-    for i in xrange(l):
+    
+    def __init__(self, columns):
+        self.columns = columns
+        l = len(next(iter(columns)))
+        self.myColumns = [(column.symbol, iter(column)) for column in columns]
+        self.unitDict = dict()
+        for col in columns:
+            self.unitDict[col.symbol] = col.unitExpr
+        self.units = self.unitDict.items()
+
+        self.indexIter = iter(xrange(l))
+
+    def __iter__(self):
+        return self
+
+    def next(self):
+        i = next(self.indexIter)
         values = dict()
-        for symbol, iterable in myColumns:
+        for symbol, iterable in self.myColumns:
             values[symbol] = next(iterable)
-        yield values
+        print(values)
+        return values
+
+
+class QuantityIterator(object):
+    def __init__(self, dataiter, unit):
+        self._dataiter = dataiter
+        self.unit = unit
+
+    def next(self):
+        return next(self._dataiter)
 
 
 class TableColumn(object):
@@ -88,7 +112,7 @@ class TableColumn(object):
 
     def iterDisplay(self):
         unitName = self.unit
-        unify = 1 / (self.unitExpr * self.magnitude)
+        unify = 1 / self.magnitude
         for row in self:
             yield (row * unify, unitName)
 
@@ -103,13 +127,19 @@ class MapColumn(TableColumn):
         self.operation = operation if operation is not Identity else None
 
     def _mapSingle(self, data):
-        if self.operation is None:
-            return data
-        return self.operation(data)
+        return self.operation(data) / self.unitExpr
+
+    def mapSingle(self, data):
+        op = self.operation
+        if op is None:
+            return data / self.unitExpr
+        else:
+            return op(data) / self.unitExpr
 
     def _mapData(self, data):
         if self.operation is None:
-            return data
+            unitExpr = self.unitExpr
+            return itertools.imap(lambda x: x / unitExpr, data)
         return itertools.imap(self.operation, data)
 
 
@@ -128,7 +158,7 @@ class DataColumn(MapColumn):
         self.data = list(self._mapData(data))
 
     def __iter__(self):
-        return iter(self.data)
+        return QuantityIterator(iter(self.data), self.unitExpr)
 
     def __len__(self):
         return len(self.data)
@@ -137,7 +167,7 @@ class DataColumn(MapColumn):
         return self.data
 
     def appendRow(self, data):
-        self.data.append(self._mapSingle(data))
+        self.data.append(self.mapSingle(data))
 
 
 class CachedColumn(TableColumn):
@@ -162,8 +192,9 @@ class DerivatedColumn(CachedColumn):
         return max((len(col) for col in self.referenceColumns))
 
     def __iter__(self):
-        for rowValues in iterColumns(self.referenceColumns):
-            yield self.sympyExpr.subs(rowValues)
+        iterator = ColumnsIterator(self.referenceColumns)
+        unitExpr = self.sympyExpr.subs(iterator.units)
+        return QuantityIterator(itertools.imap(lambda x: x / unitExpr, itertools.imap(self.sympyExpr.subs, iterator)), unitExpr)
 
 
 class Table(object):

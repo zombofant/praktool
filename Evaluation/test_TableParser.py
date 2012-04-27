@@ -37,5 +37,5 @@ class ParseGnuplot(unittest.TestCase):
         m2 = m ** 2
         s = sympy.physics.units.s
 
-        self.assertEqual(self.cols[0].data, [1.0*m2, 4.0*m2, 7.0*m2])
-        self.assertEqual(self.cols[1].data, [1.0*s, 2.0*s, 3.0*s])
+        self.assertEqual(self.cols[0].data, [1.0, 4.0, 7.0])
+        self.assertEqual(self.cols[1].data, [1.0, 2.0, 3.0])

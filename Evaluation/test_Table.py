@@ -17,13 +17,14 @@ class DataColumn(DataTest):
         super(DataColumn, self).setUp()
         self.col = Table.DataColumn(self.symbol, ("m", self.unit), self.data,
             defaultMagnitude=1)
+        self.displayData = [value/self.unit for value in self.data]
+        self.displayList = [(value, unicode(self.unit)) for value in self.displayData]
 
     def test_init(self):
-        self.assertEqual(list(self.col), self.data)
+        self.assertEqual(list(self.col), self.displayData)
 
     def test_display(self):
-        displayData = [(value/self.unit, unicode(self.unit)) for value in self.data]
-        self.assertEqual(list(self.col.iterDisplay()), displayData)
+        self.assertEqual(list(self.col.iterDisplay()), self.displayList)
 
     def tearDown(self):
         del self.col
@@ -61,5 +62,5 @@ class DerivatedColumn(DataTest):
             self.symbol * self.dataSymbol2,
             defaultMagnitude=1
         )
-        finalData = [(value*(units.mile**3)*(units.kilogram/(units.meter**3))*value*units.mile/(units.hour**2)) for value in range(10)]
+        finalData = [(value*(units.mile**3)*(units.kilogram/(units.meter**3))*value*units.mile/(units.hour**2) / (units.newton)) for value in range(10)]
         self.assertEqual(list(self.derivColumn2), finalData)
