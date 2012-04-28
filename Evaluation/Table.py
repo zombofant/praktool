@@ -7,6 +7,9 @@ import itertools
 
 import sympy.physics.units as units
 
+import StatUtils
+import ValueClasses
+
 class Identity(object):
     """
     Used as a magic value for bypassing the operation of MapColumn objects.
@@ -30,6 +33,95 @@ def iterColumns(columns):
         yield values
 
 
+class ColumnAttachment(object):
+    def __init__(self, key, default=None, initialLength=0):
+        self.key = key
+        self.default = default or key.getDefault
+        if initialLength > 0 and default is None:
+            raise ValueError("Cannot create attachment without default value and with initial length")
+        self.data = [default] * initialLength
+
+    def append(self, value):
+        self.data.append(value)
+
+    def appendDefault(self):
+        if self.default is None:
+            raise ValueError("Must have a value for attachment {0} (no default given)")
+        self.data.append(self.default)
+
+    def __iter__(self):
+        return iter(self.data)
+
+
+class Column(object):
+    def __init__(self, table, symbol, unit, magnitude=1, **kwargs):
+        super(Column, self).__init__(**kwargs)
+        self.attachments = dict()
+        self.table = table
+        self.symbol = symbol
+        self.unitName, self.unitExpr = unit
+        if magnitude is None:
+            raise NotImplementedError("Cannot scale automagically yet")
+        self.magnitude = magnitude
+
+    def newAttachment(self, key, default=None):
+        if key in self.attachments:
+            raise KeyError("Attachment {0} already defined".format(key))
+        self.attachments[key] = ColumnAttachment(key, default=default, initialLength=len(self))
+
+    @abc.abstractmethod
+    def __iter__(self):
+        pass
+
+    @abc.abstractmethod
+    def __len__(self):
+        pass
+
+
+class MeasurementColumn(Column):
+    def __init__(self, table, symbol, unit, magnitude=1, **kwargs):
+        super(MeasurementColumn, self).__init__(self, table, symbol, unit,
+            magnitude=magnitude)
+
+    def _append(self, value, attachments=None):
+        for key, value in self.attachments.iteritems():
+            if key in attachments:
+                self.attachments[key].append(value)
+            else:
+                self.attachments[key].appendDefault()
+        self.data.append(value)
+
+    def append(self, row):
+        if isinstance(row, (float, int, long, sp.Expr)):
+            self._append(row / self.unitExpr)
+        elif hasattr(row, "__iter__"):
+            unitExpr = self.unitExpr
+            mean, stddev = StatUtils.mean(map(lambda x: x / unitExpr, row))
+            self._append(mean, {
+                ValueClasses.StatisticalUncertainity: stddev
+            })
+        else:
+            raise TypeError("Row must be numeric or sympy expr for single values or iterable for automatic statistics")
+
+    def __iter__(self):
+        l = len(self.data)
+        keyIterators = list()
+        for key, value in self.attachments.iteritems():
+            assert len(value) == l
+            keyIterators.append((key, iter(value)))
+        
+        for row in self.data:
+            attachments = dict()
+            for key, iterator in keyIterators:
+                attachments[key] = next(iterator)
+            yield row, attachments
+
+class DerivatedColumn(Column):
+    def __init__(self, table, symbol, sources, unit, magnitude=1, **kwargs):
+        super(DerivatedColumn, self).__init__(self, table, symbol, unit, magnitude=magnitude)
+        self.sources = sources
+
+    
 class TableColumn(object):
     """
     Represents a column in a :class:`Table`.
