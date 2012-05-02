@@ -28,7 +28,7 @@ class ColumnsIterator(object):
         self.myColumns = [(column.symbol, iter(column)) for column in columns]
         self.unitDict = dict()
         for col in columns:
-            self.unitDict[col.symbol] = col.unitExpr
+            self.unitDict[col.symbol] = col.symbol * col.unitExpr
         self.units = self.unitDict.items()
 
         self.indexIter = iter(xrange(l))
@@ -41,7 +41,6 @@ class ColumnsIterator(object):
         values = dict()
         for symbol, iterable in self.myColumns:
             values[symbol] = next(iterable)
-        print(values)
         return values
 
 
@@ -193,8 +192,8 @@ class DerivatedColumn(CachedColumn):
 
     def __iter__(self):
         iterator = ColumnsIterator(self.referenceColumns)
-        unitExpr = self.sympyExpr.subs(iterator.units)
-        return QuantityIterator(itertools.imap(lambda x: x / unitExpr, itertools.imap(self.sympyExpr.subs, iterator)), unitExpr)
+        unitfreeExpr = self.sympyExpr.subs(iterator.units) / self.unitExpr
+        return QuantityIterator(itertools.imap(unitfreeExpr.subs, iterator), self.unitExpr)
 
 
 class Table(object):
