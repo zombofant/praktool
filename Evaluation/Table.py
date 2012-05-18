@@ -265,7 +265,7 @@ class Table(object):
         ValueError will be raised (as this means that your expression
         does not yield the unit you requested).
 
-        Return the newly created column.
+        Return the new DerivatedColumn object.
         """
         self.symbolAvailable(symbol)
         
@@ -297,6 +297,16 @@ class Table(object):
         return column
 
     def diff(self, symbol_or_name, newSymbol):
+        """
+        Subtract subsequent items from the column with the given symbol
+        or name and store the result in a new column with the given new
+        symbol.
+
+        This is equal to numerical forward differentiation, giving a new
+        column with one item less than the previous column.
+
+        Return the new DataColumn object
+        """
         self.symbolAvailable(newSymbol)
         oldColumn = self[symbol_or_name]
         newData = np.diff(np.fromiter(oldColumn, np.float64))
