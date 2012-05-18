@@ -3,6 +3,7 @@ from __future__ import unicode_literals, division, print_function
 from our_future import *
 
 import abc
+import sys
 import itertools
 
 import sympy.physics.units as units
@@ -45,12 +46,25 @@ class ColumnsIterator(object):
 
 
 class QuantityIterator(object):
-    def __init__(self, dataiter, unit):
+    def __init__(self, dataiter, unit, len=0):
         self._dataiter = dataiter
         self.unit = unit
+        self.len = len
+        self.i = 0
+
+    def setLen(self, len):
+        self.len = len
 
     def next(self):
+        if self.len:
+            if self.i % 10 == 0:
+                print("Calculating: {0} / {1}".format(self.i, self.len), end="\r", file=sys.stderr)
+                sys.stderr.flush()
+            self.i += 1
         return next(self._dataiter)
+
+    def __iter__(self):
+        return self
 
 
 class TableColumn(object):
@@ -112,7 +126,10 @@ class TableColumn(object):
     def iterDisplay(self):
         unitName = self.unit
         unify = 1 / self.magnitude
-        for row in self:
+        iterator = iter(self)
+        if isinstance(iterator, QuantityIterator):
+            iterator.setLen(len(self))
+        for row in iterator:
             yield (row * unify, unitName)
 
 
