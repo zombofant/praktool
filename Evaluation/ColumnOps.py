@@ -1,5 +1,6 @@
 # encoding=utf-8
 
+from __future__ import division, print_function, unicode_literals
 import itertools
 
 import sympy
@@ -14,15 +15,17 @@ def mean(column):
     res = 0
     res2 = 0
 
+    count = len(column)
+
     for item in column:
         a = item
         res += a
         res2 += a**2
 
-    res /= len(column)
-    res2 /= len(column)
+    res /= count
+    res2 /= count
 
-    return res, sympy.sqrt(res2 - res**2)
+    return res * column.unitExpr, sympy.sqrt((res2 - res**2)/(count-1)) * column.unitExpr
 
 def linearRegression(table, cx, cy):
     """
