@@ -5,8 +5,13 @@ from our_future import *
 import abc
 import sys
 import itertools
+import functools
 
 import sympy.physics.units as units
+import numpy as np
+
+import utils
+import sympyUtils
 
 class Identity(object):
     """
@@ -142,8 +147,11 @@ class MapColumn(TableColumn):
             raise TypeError("operation must be callable.")
         self.operation = operation if operation is not Identity else None
 
-    def _mapSingle(self, data):
-        return self.operation(data) / self.unitExpr
+    def _mapSingle(self, noUnits, data):
+        if noUnits:
+            return self.operation(data)
+        else:
+            return self.operation(data) / self.unitExpr
 
     def mapSingle(self, data):
         op = self.operation
@@ -152,11 +160,13 @@ class MapColumn(TableColumn):
         else:
             return op(data) / self.unitExpr
 
-    def _mapData(self, data):
+    def _mapData(self, data, noUnits=False):
         if self.operation is None:
+            if noUnits:
+                return data
             unitExpr = self.unitExpr
             return itertools.imap(lambda x: x / unitExpr, data)
-        return itertools.imap(self.operation, data)
+        return itertools.imap(functools.partial(self._mapSingle, noUnits), data)
 
 
 class DataColumn(MapColumn):
@@ -168,10 +178,10 @@ class DataColumn(MapColumn):
     *operation* and stored as list internally.
     """
     def __init__(self, symbol, unit, data, operation=Identity,
-            defaultMagnitude=None, title=None, **kwargs):
+            defaultMagnitude=None, title=None, noUnits=False, **kwargs):
         super(DataColumn, self).__init__(symbol, unit, operation,
             defaultMagnitude=defaultMagnitude, title=title, **kwargs)
-        self.data = list(self._mapData(data))
+        self.data = list(self._mapData(data, noUnits))
 
     def __iter__(self):
         return QuantityIterator(iter(self.data), self.unitExpr)
@@ -225,17 +235,91 @@ class Table(object):
         for column in columns:
             self.add(column)
 
+    def symbolAvailable(self, symbol):
+        if symbol in self:
+            raise KeyError("Duplicate symbol: {0}".format(symbol))
+
     def add(self, column):
         # look closer ... closer ... SETDEFAULT!
         if not self.columns.setdefault(column.symbol, column) is column:
             raise KeyError("Duplicate symbol: {0}".format(column.symbol))
         self.symbolNames[unicode(column.symbol)] = column.symbol
+        return column
+
+    def derivate(self, symbol, unit, expression, defaultMagnitude=1, **kwargs):
+        """
+        Derivate a column from columns already stored in the table.
+
+        *symbol* must be the symbol which is to be assigned to the new
+        column, which must not be used inside the table yet.
+
+        *unit* works like in :cls:`DataColumn`, but here it must be in
+        its tuple form.
+
+        *expression* is the expression which is used to calculate the
+        cells of the column. It can contain any units or references to
+        other columns you need, but the columns must be known in the
+        table, otherwise a KeyError will be raised. If the expression
+        does not evaluate to a unitless expression when all unknowns
+        are substituted well and divided by the given *unit*, a
+        ValueError will be raised (as this means that your expression
+        does not yield the unit you requested).
+
+        Return the newly created column.
+        """
+        self.symbolAvailable(symbol)
+        
+        symbols = set(sympyUtils.iterSymbols(expression))
+        try:
+            cols = list(map(self.__getitem__, symbols))
+        except KeyError as err:
+            raise KeyError("Unknown Symbol used in expression: {0}".format(err))
+        
+        unitName, unitExpr = unit
+        
+        unitSubsDict = dict((col.symbol, col.unitExpr) for col in cols)
+        testUnitExpr = expression.subs(unitSubsDict)
+
+        # this must have been excluded by the substitution
+        assert utils.empty(iter(sympyUtils.iterSymbols(testUnitExpr)))
+        
+        if not utils.empty(iter(sympyUtils.iterSymbolsAndUnits(testUnitExpr / unitExpr))):
+            raise ValueError("Unit of expression does not match requested unit.")
+        
+        column = self.add(DerivatedColumn(
+            symbol,
+            unit,
+            cols,
+            expression,
+            defaultMagnitude=defaultMagnitude,
+            **kwargs
+        ))
+        return column
+
+    def diff(self, symbol_or_name, newSymbol):
+        self.symbolAvailable(newSymbol)
+        oldColumn = self[symbol_or_name]
+        newData = np.diff(np.fromiter(oldColumn, np.float64))
+        column = self.add(DataColumn(
+            newSymbol,
+            (oldColumn.unit, oldColumn.unitExpr),
+            newData,
+            defaultMagnitude=oldColumn.magnitude,
+            noUnits=True
+        ))
+        return column
 
     def __getitem__(self, symbol_or_name):
         if isinstance(symbol_or_name, (unicode, str)):
             return self.columns[self.symbolNames[symbol_or_name]]
         else:
             return self.columns[symbol_or_name]
+
+    def __contains__(self, symbol_or_name):
+        if isinstance(symbol_or_name, (unicode, str)):
+            return symbol_or_name in self.symbolNames
+        else:
+            return symbol_or_name in self.columns
 
     def __delitem__(self, symbol_or_name):
         if isinstance(symbol_or_name, (unicode, str)):
