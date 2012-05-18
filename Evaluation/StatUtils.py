@@ -10,12 +10,14 @@ def mean(column):
     res = 0
     res2 = 0
 
+    count = len(column)
+
     for item in column:
         a = item
         res += a
         res2 += a**2
 
-    res /= len(column)
-    res2 /= len(column)
+    res /= count
+    res2 /= count
 
-    return res, sp.sqrt(res2 - res**2)
+    return res * column.unitExpr, sp.sqrt((res2 - res**2)/(count-1)) * column.unitExpr
