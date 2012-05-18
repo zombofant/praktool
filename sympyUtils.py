@@ -17,3 +17,7 @@ def iterUnits(expr):
 
 def iterSymbolsAndUnits(expr):
     return iterSubtype(expr, (sp.Symbol, u.Unit))
+
+def setUndefinedTo(expr, value):
+    return expr.subs(dict((sym, value) for sym in list(iterSymbols(expr))))
+    

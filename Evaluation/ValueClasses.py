@@ -9,7 +9,7 @@ import sympy as sp
 
 class Uncertainity(object):
     @staticmethod
-    def getDefault(self):
+    def getDefault():
         return 0
     
     def __unicode__(self):

@@ -91,7 +91,7 @@ class QuantityIterator(object):
 class ColumnAttachment(object):
     def __init__(self, key, default=None, initialLength=0):
         self.key = key
-        self.default = default or key.getDefault
+        self.default = default or key.getDefault()
         if initialLength > 0 and default is None:
             raise ValueError("Cannot create attachment without default value and with initial length")
         self.data = [default] * initialLength
@@ -106,6 +106,9 @@ class ColumnAttachment(object):
 
     def __iter__(self):
         return iter(self.data)
+
+    def __len__(self):
+        return len(self.data)
 
 
 class Column(object):
@@ -140,11 +143,16 @@ class Column(object):
         self.data = []
 
     def _append(self, value, attachments=None):
-        for key, value in self.attachments.iteritems():
-            if key in attachments:
-                self.attachments[key].append(value)
-            else:
-                self.attachments[key].appendDefault()
+        if attachments is not None:
+            for key, attachment in self.attachments.iteritems():
+                attachmentValue = attachments.get(key, None)
+                if attachmentValue is None:
+                    attachment.appendDefault()
+                else:
+                    attachment.append(attachmentValue)
+        else:
+            for attachment in self.attachments.itervalues():
+                attachment.appendDefault()
         self.data.append(value)
 
     def __iter__(self):
@@ -210,12 +218,16 @@ class DerivatedColumn(Column):
         if forceDeep:
             for source in self.sources:
                 source.update(forceDeep=True)
+        else:
+            for source in self.sources:
+                if len(source) == 0:
+                    source.update()
         self.clear()
         iterator = ColumnsIterator(self.sources)
         unitfreeExpr = self.expression.subs(iterator.units) / self.unitExpr
         attachments = iterator.attachments
         if len(attachments) > 0:
-            errorExpr = buildErrorExpression(unitfreeExpr, iterator.errorSymbols)
+            errorExpr = StatUtils.buildErrorExpression(unitfreeExpr, iterator.errorSymbols)
 
             for key in attachments:
                 self.newAttachment(key, default=0)
@@ -225,10 +237,26 @@ class DerivatedColumn(Column):
             attachmentDict.clear()
             value = unitfreeExpr.subs(valueSubs)
             for key in attachments:
-                attachmentDict[key] = errorExpr.subs(valueSubs, attachmentSubs)
+                attachmentDict[key] = sympyUtils.setUndefinedTo(errorExpr.subs(valueSubs).subs(attachmentSubs[key]), 0)
             self._append(value, attachmentDict)
-            
-        # return QuantityIterator(itertools.imap(unitfreeExpr.subs, iterator), self.unitExpr)
+
+
+class ConstColumn(Column):
+    def __init__(self, symbol, unit, value, attachments, length, magnitude=1, **kwargs):
+        super(ConstColumn, self).__init__(symbol, unit, magnitude=magnitude)
+        self.value = value / self.unitExpr
+        if attachments:
+            self.attachments = dict((key, value / self.unitExpr) for key, value in attachments.iteritems())
+        else:
+            self.attachments = {}
+        self.length = length
+
+    def __iter__(self):
+        while True:
+            yield (self.value, dict(self.attachments))
+
+    def __len__(self):
+        return self.length
 
 
 class Table(object):
@@ -329,7 +357,57 @@ class Table(object):
         ))
         return column
 
+    def join(self, newSymbol, args, propagateSystematical=False, addError=0):
+        sources = list(map(self.__getitem__, args))
+        if len(args) < 2:
+            raise ValueError("Join must have at least two columns to join")
+        for source in sources:
+            if len(source) == 0:
+                source.update()
+        column = MeasurementColumn(
+            newSymbol,
+            (args[0].unit, args[0].unitExpr)
+        )
+        column.newAttachment(ValueClasses.StatisticalUncertainity, default=0)
+        if propagateSystematical:
+            column.newAttachment(ValueClasses.SystematicalUncertainity, default=0)
+        for cells in itertools.izip(*args):
+            values = list(map(lambda x: x[0], cells))
+            mean, stddev = StatUtils.mean(values)
+            attachmentDict = {}
+            if propagateSystematical:
+                syst = []
+                for value, attachment in cells:
+                    currSyst = attachment.get(ValueClasses.SystematicalUncertainity, None)
+                    if currSyst is not None:
+                        syst.append(currSyst)
+                if len(syst) > 0:
+                    attachmentDict[ValueClasses.SystematicalUncertainity] = syst / len(syst)
+            attachmentDict[ValueClasses.StatisticalUncertainity] = stddev + addError
+            column._append(mean, attachmentDict)
+        self.add(column)
+
+    def _updateNode(self, node, updated):
+        if node in updated:
+            return
+        for source in node.getSources():
+            if not source in updated:
+                self._updateNode(source, updated)
+                assert source in updated
+        node.update()
+        updated.add(node)
+
+    def updateAll(self):
+        updated = set()
+        try:
+            for col in self.columns.itervalues():
+                self._updateNode(col, updated)
+        except RuntimeError:
+            raise ValueError("Stack overflow; Cyclic reference between columns?")
+
     def __getitem__(self, symbol_or_name):
+        if isinstance(symbol_or_name, Column):
+            return self[symbol_or_name.symbol]
         if isinstance(symbol_or_name, (unicode, str)):
             return self.columns[self.symbolNames[symbol_or_name]]
         else:
@@ -342,9 +420,10 @@ class Table(object):
             return symbol_or_name in self.columns
 
     def __delitem__(self, symbol_or_name):
-        if isinstance(symbol_or_name, (unicode, str)):
-            symbol = self.symbolNames[symbol_or_name]
-        else:
-            symbol = symbol_or_name
-        del self.symbolNames[unicode(symbol)]
-        del self.columns[symbol]
+        raise TypeError("Deletion explicitly prohibited (would break the update tree).")
+        #~ if isinstance(symbol_or_name, (unicode, str)):
+            #~ symbol = self.symbolNames[symbol_or_name]
+        #~ else:
+            #~ symbol = symbol_or_name
+        #~ del self.symbolNames[unicode(symbol)]
+        #~ del self.columns[symbol]

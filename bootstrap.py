@@ -51,10 +51,11 @@ import sympy.physics.units as units
 
 import Evaluation.Table as Table
 import Evaluation.TableParser as Parser
-import Evaluation.ColumnOps as cops
+import Evaluation.StatUtils as StatUtils
 from Document.TablePrinter import SimplePrinter
-from CODATA import patchUnits
-patchUnits()
+from Evaluation.ValueClasses import StatisticalUncertainity, SystematicalUncertainity
+import CODATA
+CODATA.patchUnits()
 
 data = Table.Table(Parser.ParseGnuplot(open("{1}", "r")))
 
