@@ -3,7 +3,14 @@ import sys
 import argparse
 
 if __name__ == "__main__":
-    parser = argparse.ArgumentParser()
+    parser = argparse.ArgumentParser(
+        description="""\
+Bootstrap a experiment evaluation script. The script is stored to
+SCRIPTFILE. It is assumed that you want to read our gnuplot-compatible
+format data from DATAFILE, but if not that's easy to change. Furthermore
+you can specify an arbitary amount of symbols which will be pulled from
+the table into the local namespace."""
+    )
     parser.add_argument(
         "scriptfile",
         metavar="SCRIPTFILE",
@@ -28,7 +35,6 @@ if __name__ == "__main__":
     )
 
     args = parser.parse_args(sys.argv[1:])
-    print(args)
 
     out = open(args.scriptfile, "w")
     template = """\
@@ -46,6 +52,7 @@ import sympy.physics.units as units
 import Evaluation.Table as Table
 import Evaluation.TableParser as Parser
 import Evaluation.ColumnOps as cops
+from Document.TablePrinter import SimplePrinter
 from CODATA import patchUnits
 patchUnits()
 
@@ -62,16 +69,20 @@ data = Table.Table(Parser.ParseGnuplot(open("{1}", "r")))
         template = "{0} = (col.symbol for col in map(data.__getitem__, ({1}, )))\n"
         out.write(template.format(
             ", ".join(args.symbol),
-            ", ".join(repr(symbol) for symbol in args.symbol)
+            ", ".join(map(repr, args.symbol))
         ))
     template = """\
 
 if __name__ == "__main__":
-    pass
 """
     out.write(template)
+    if len(args.symbol) > 0:
+        template = "    SimplePrinter({0})(data, file=sys.stdout)\n"
+        out.write(template.format(
+            ", ".join(map(repr, args.symbol))
+        ))
+    else:
+        out.write("    pass\n")
     out.close()
-    
-    
 else:
     raise ImportError("Thou shalt not import this script.")
