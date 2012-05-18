@@ -244,4 +244,3 @@ class Table(object):
             symbol = symbol_or_name
         del self.symbolNames[unicode(symbol)]
         del self.columns[symbol]
-
