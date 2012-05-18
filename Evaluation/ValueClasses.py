@@ -7,34 +7,7 @@ import itertools
 
 import sympy as sp
 
-class ValueClass(object):
-    __metaclass__ = abc.ABCMeta
-    
-    def __init__(self):
-        raise TypeError("Thou shalt not instanciate this class")
-        
-    @staticmethod
-    def getDefault(self):
-        return None
-
-class MeasuredValue(ValueClass):
-    @staticmethod
-    def getPropagationExpr(expr, variables, dvariables):
-        return expr, False
-    
-    def __unicode__(self):
-        return "measurement"
-
-class MeanValue(MeasuredValue):
-    def __unicode__(self):
-        return "mean measurement"
-
-class Uncertainity(ValueClass):
-    @staticmethod
-    def getPropagationExpr(expr, variables, dvariables):
-        dexprs = [sp.diff(expr, variable) * dvariable for variable, dvariable in zip(variables, dvariables)]
-        return sp.sqrt(sum(map(lambda x: x**2, dexprs))), True
-        
+class Uncertainity(object):
     @staticmethod
     def getDefault(self):
         return 0
@@ -42,10 +15,10 @@ class Uncertainity(ValueClass):
     def __unicode__(self):
         return "uncertainity"
 
-class StatisticalUncertainity(ValueClass):
+class StatisticalUncertainity(Uncertainity):
     def __unicode__(self):
         return "statistical uncertainity"
 
-class SystematicalUncertainity(ValueClass):
+class SystematicalUncertainity(Uncertainity):
     def __unicode__(self):
         return "systematical uncertainity"

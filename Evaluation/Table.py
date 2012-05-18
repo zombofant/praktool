@@ -6,7 +6,9 @@ import abc
 import sys
 import itertools
 import functools
+import collections
 
+import sympy as sp
 import sympy.physics.units as units
 import numpy as np
 
@@ -36,9 +38,15 @@ class ColumnsIterator(object):
         l = len(next(iter(columns)))
         self.myColumns = [(column.symbol, iter(column)) for column in columns]
         self.unitDict = dict()
+        self.errorSymbols = []
+        self.attachments = set()
         for col in columns:
-            self.unitDict[col.symbol] = col.symbol * col.unitExpr
+            symbol = col.symbol
+            self.unitDict[symbol] = symbol * col.unitExpr
+            self.errorSymbols.append((symbol, sp.Dummy(b"delta__"+str(symbol))))
+            self.attachments.update(col.attachments.iterkeys())
         self.units = self.unitDict.items()
+        self.errorSymbolDict = dict(self.errorSymbols)
 
         self.indexIter = iter(xrange(l))
 
@@ -48,9 +56,14 @@ class ColumnsIterator(object):
     def next(self):
         i = next(self.indexIter)
         values = dict()
+        attachments = dict()
         for symbol, iterable in self.myColumns:
-            values[symbol] = next(iterable)
-        return values
+            value, attachmentValues = next(iterable)
+            values[symbol] = value
+            errorSymbol = self.errorSymbolDict[symbol]
+            for key, value in attachmentValues.iteritems():
+                attachments.setdefault(key, dict())[errorSymbol] = value
+        return values, attachments
 
 
 class QuantityIterator(object):
@@ -96,34 +109,35 @@ class ColumnAttachment(object):
 
 
 class Column(object):
-    def __init__(self, table, symbol, unit, magnitude=1, **kwargs):
+    def __init__(self, symbol, unit, magnitude=1, **kwargs):
         super(Column, self).__init__(**kwargs)
         self.attachments = dict()
-        self.table = table
         self.symbol = symbol
-        self.unitName, self.unitExpr = unit
+        try:
+            if isinstance(unit, (unicode, str)):
+                raise TypeError()  # ugly, but avoids code duplication
+            if isinstance(unit, sp.Expr):
+                raise ValueError()
+            self.unit, self.unitExpr = unit
+        except ValueError:
+            self.unitExpr = unit
+            self.unit = str(unit)
+        except TypeError:
+            self.unit = unit
+            self.unitExpr = eval(unicode(unit), units.__dict__)
         if magnitude is None:
             raise NotImplementedError("Cannot scale automagically yet")
         self.magnitude = magnitude
+        self.clear()
 
     def newAttachment(self, key, default=None):
         if key in self.attachments:
             raise KeyError("Attachment {0} already defined".format(key))
         self.attachments[key] = ColumnAttachment(key, default=default, initialLength=len(self))
 
-    @abc.abstractmethod
-    def __iter__(self):
-        pass
-
-    @abc.abstractmethod
-    def __len__(self):
-        pass
-
-
-class MeasurementColumn(Column):
-    def __init__(self, table, symbol, unit, magnitude=1, **kwargs):
-        super(MeasurementColumn, self).__init__(self, table, symbol, unit,
-            magnitude=magnitude)
+    def clear(self):
+        self.attachments = {}
+        self.data = []
 
     def _append(self, value, attachments=None):
         for key, value in self.attachments.iteritems():
@@ -132,18 +146,6 @@ class MeasurementColumn(Column):
             else:
                 self.attachments[key].appendDefault()
         self.data.append(value)
-
-    def append(self, row):
-        if isinstance(row, (float, int, long, sp.Expr)):
-            self._append(row / self.unitExpr)
-        elif hasattr(row, "__iter__"):
-            unitExpr = self.unitExpr
-            mean, stddev = StatUtils.mean(map(lambda x: x / unitExpr, row))
-            self._append(mean, {
-                ValueClasses.StatisticalUncertainity: stddev
-            })
-        else:
-            raise TypeError("Row must be numeric or sympy expr for single values or iterable for automatic statistics")
 
     def __iter__(self):
         l = len(self.data)
@@ -158,161 +160,75 @@ class MeasurementColumn(Column):
                 attachments[key] = next(iterator)
             yield row, attachments
 
-class DerivatedColumn(Column):
-    def __init__(self, table, symbol, sources, unit, magnitude=1, **kwargs):
-        super(DerivatedColumn, self).__init__(self, table, symbol, unit, magnitude=magnitude)
-        self.sources = sources
-
-    
-class TableColumn(object):
-    """
-    Represents a column in a :class:`Table`.
-
-    *symbol* must be a sympy :class:`sympy.core.symbol.Symbol` which identifies
-    the value in the column. *title* can be set if the string representation of
-    *symbol* is not suitable as a title for the column.
-
-    *displayUnit* must either be a string which can be evaluated to a sympy
-    expression using `eval(displayUnit, sympy.physics.units.__dict__)` or a
-    container like `(unitName, unitExpr)`, with *unitName* being the plain text
-    name of the unit and *unitExpr* being a sympy expression resembling the
-    unit.
-
-    *defaultMagnitude* can be a unitless sympy expression which is then used to
-    scale the final quantities. If this is `None`, automatic scaling takes
-    place.
-
-    One can create an iterable over the rows of a table column by calling
-    :func:`iter` on a :class:`TableColumn` instance.
-
-    You may override the :func:`TableColumn.dataHash` method to reflect changes
-    in the data stored in the column. This helps for caching calculated data.
-    You may return a value of arbitary type, but it must be hashable and
-    comparable. If you do not the columns contents to be cached, return
-    `NotImplemented`.
-    """
-
-    __metaclass__ = abc.ABCMeta
-
-    def __init__(self, symbol, displayUnit, defaultMagnitude=None, title=None, **kwargs):
-        super(TableColumn, self).__init__(**kwargs)
-        self.symbol = symbol
-        self.title = title or unicode(symbol)
-        try:
-            if isinstance(displayUnit, (unicode, str)):
-                raise TypeError()  # ugly, but avoids code duplication
-            self.unit, self.unitExpr = displayUnit
-        except TypeError:
-            self.unit = displayUnit
-            self.unitExpr = eval(unicode(displayUnit), units.__dict__)
-        if defaultMagnitude is None:
-            raise NotImplementedError("Cannot scale automagically yet.")
-        self.magnitude = defaultMagnitude
-
-    @abc.abstractmethod
-    def __iter__(self):
-        pass
-
-    @abc.abstractmethod
-    def __len__(self):
-        pass
-
-    def dataHash(self):
-        return NotImplemented
-
-    def iterDisplay(self):
-        unitName = self.unit
-        unify = 1 / self.magnitude
-        iterator = iter(self)
-        if isinstance(iterator, QuantityIterator):
-            iterator.setLen(len(self))
-        for row in iterator:
-            yield (row * unify, unitName)
-
-
-class MapColumn(TableColumn):
-    def __init__(self, symbol, unit, operation, defaultMagnitude=None,
-            title=None, **kwargs):
-        super(MapColumn, self).__init__(symbol, unit,
-            defaultMagnitude=defaultMagnitude, title=title, **kwargs)
-        if not hasattr(operation, "__call__"):
-            raise TypeError("operation must be callable.")
-        self.operation = operation if operation is not Identity else None
-
-    def _mapSingle(self, noUnits, data):
-        if noUnits:
-            return self.operation(data)
-        else:
-            return self.operation(data) / self.unitExpr
-
-    def mapSingle(self, data):
-        op = self.operation
-        if op is None:
-            return data / self.unitExpr
-        else:
-            return op(data) / self.unitExpr
-
-    def _mapData(self, data, noUnits=False):
-        if self.operation is None:
-            if noUnits:
-                return data
-            unitExpr = self.unitExpr
-            return itertools.imap(lambda x: x / unitExpr, data)
-        return itertools.imap(functools.partial(self._mapSingle, noUnits), data)
-
-
-class DataColumn(MapColumn):
-    """
-    Implements a raw data column.
-
-    *data* must be a iterable of sympy expressions resembling the data
-    including its units. The iterable will only be evaluated once, mapped with
-    *operation* and stored as list internally.
-    """
-    def __init__(self, symbol, unit, data, operation=Identity,
-            defaultMagnitude=None, title=None, noUnits=False, **kwargs):
-        super(DataColumn, self).__init__(symbol, unit, operation,
-            defaultMagnitude=defaultMagnitude, title=title, **kwargs)
-        self.data = list(self._mapData(data, noUnits))
-
-    def __iter__(self):
-        return QuantityIterator(iter(self.data), self.unitExpr)
-
     def __len__(self):
         return len(self.data)
+    
+    def getSources(self):
+        return []
 
-    def dataHash(self):
-        return self.data
-
-    def appendRow(self, data):
-        self.data.append(self.mapSingle(data))
-
-
-class CachedColumn(TableColumn):
-    def __init__(self, symbol, unit, referenceColumns, **kwargs):
-        super(CachedColumn, self).__init__(symbol, unit, **kwargs)
-        self.referenceColumns = frozenset(referenceColumns)
-        # self.cacheToken =
-
-    def getReference(self, referenceColumn):
-        # no caching yet :)
-        return referenceColumn.__iter__()
+    @abc.abstractmethod
+    def update(self, forceDeep=False):
+        pass
 
 
-class DerivatedColumn(CachedColumn):
-    def __init__(self, symbol, unit, referenceColumns, sympyExpr, defaultMagnitude=None,
-            title=None, **kwargs):
-        super(DerivatedColumn, self).__init__(symbol, unit, referenceColumns,
-            defaultMagnitude=defaultMagnitude, title=title, **kwargs)
-        self.sympyExpr = sympyExpr
+class MeasurementColumn(Column):
+    def __init__(self, symbol, unit, data=None, magnitude=1, noUnits=False, **kwargs):
+        super(MeasurementColumn, self).__init__(symbol, unit,
+            magnitude=magnitude, **kwargs)
+        if data is not None:
+            if noUnits:
+                collections.deque(map(self._append, data), maxlen=0)
+            else:
+                collections.deque(map(self.append, data), maxlen=0)
 
-    def __len__(self):
-        return max((len(col) for col in self.referenceColumns))
+    def append(self, row):
+        if isinstance(row, (float, int, long, sp.Expr)):
+            self._append(row / self.unitExpr)
+        elif hasattr(row, "__iter__"):
+            unitExpr = self.unitExpr
+            mean, stddev = StatUtils.mean(map(lambda x: x / unitExpr, row))
+            self._append(mean, {
+                ValueClasses.StatisticalUncertainity: stddev
+            })
+        else:
+            raise TypeError("Row must be ((numeric or sympy) expr for single values or iterable) for automatic statistics")
 
-    def __iter__(self):
-        iterator = ColumnsIterator(self.referenceColumns)
-        unitfreeExpr = self.sympyExpr.subs(iterator.units) / self.unitExpr
-        return QuantityIterator(itertools.imap(unitfreeExpr.subs, iterator), self.unitExpr)
+    def update(self, forceDeep=False):
+        pass
+
+
+class DerivatedColumn(Column):
+    def __init__(self, symbol, unit, sources, expression, magnitude=1, **kwargs):
+        super(DerivatedColumn, self).__init__(symbol, unit, magnitude=magnitude)
+        self.sources = frozenset(sources)
+        self.expression = expression
+
+    def getSources(self):
+        return frozenset(self.sources)
+
+    def update(self, forceDeep=False):
+        if forceDeep:
+            for source in self.sources:
+                source.update(forceDeep=True)
+        self.clear()
+        iterator = ColumnsIterator(self.sources)
+        unitfreeExpr = self.expression.subs(iterator.units) / self.unitExpr
+        attachments = iterator.attachments
+        if len(attachments) > 0:
+            errorExpr = buildErrorExpression(unitfreeExpr, iterator.errorSymbols)
+
+            for key in attachments:
+                self.newAttachment(key, default=0)
+
+        attachmentDict = dict()
+        for valueSubs, attachmentSubs in iterator:
+            attachmentDict.clear()
+            value = unitfreeExpr.subs(valueSubs)
+            for key in attachments:
+                attachmentDict[key] = errorExpr.subs(valueSubs, attachmentSubs)
+            self._append(value, attachmentDict)
+            
+        # return QuantityIterator(itertools.imap(unitfreeExpr.subs, iterator), self.unitExpr)
 
 
 class Table(object):
@@ -401,12 +317,14 @@ class Table(object):
         """
         self.symbolAvailable(newSymbol)
         oldColumn = self[symbol_or_name]
-        newData = np.diff(np.fromiter(oldColumn, np.float64))
-        column = self.add(DataColumn(
+        if len(oldColumn.attachments) > 0:
+            raise ValueError("Can only diff columns without attachments")
+        newData = np.diff(np.fromiter(oldColumn.data, np.float64))
+        column = self.add(MeasurementColumn(
             newSymbol,
             (oldColumn.unit, oldColumn.unitExpr),
             newData,
-            defaultMagnitude=oldColumn.magnitude,
+            magnitude=oldColumn.magnitude,
             noUnits=True
         ))
         return column

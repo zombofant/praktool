@@ -12,19 +12,19 @@ class DataTest(unittest.TestCase):
         self.data = [value*units.mile for value in xrange(10)]
         self.unit = units.meter
     
-class DataColumn(DataTest):
+class MeasurementColumn(DataTest):
     def setUp(self):
-        super(DataColumn, self).setUp()
-        self.col = Table.DataColumn(self.symbol, ("m", self.unit), self.data,
-            defaultMagnitude=1)
-        self.displayData = [value/self.unit for value in self.data]
-        self.displayList = [(value, unicode(self.unit)) for value in self.displayData]
+        super(MeasurementColumn, self).setUp()
+        self.col = Table.MeasurementColumn(
+            self.symbol,
+            ("m", self.unit),
+            self.data
+        )
+        self.displayData = [(value/self.unit, {}) for value in self.data]
 
     def test_init(self):
+        self.assertEqual(len(self.col), len(self.data))
         self.assertEqual(list(self.col), self.displayData)
-
-    def test_display(self):
-        self.assertEqual(list(self.col.iterDisplay()), self.displayList)
 
     def tearDown(self):
         del self.col
@@ -35,34 +35,40 @@ class DerivatedColumn(DataTest):
         self.unit = units.meter**3
         self.data = [value*(units.mile**3) for value in range(10)]
         self.dataSymbol = sympy.Symbol("r")
-        self.dataColumn = Table.DataColumn(self.dataSymbol, ("m³", self.unit),
-            self.data, defaultMagnitude=1)
-        self.derivColumn = Table.DerivatedColumn(self.symbol, ("kg", units.kilogram),
-            [self.dataColumn], self.dataSymbol * (units.kilogram/(units.meter**3)),
-            defaultMagnitude=1)
+        self.dataColumn = Table.MeasurementColumn(
+            self.dataSymbol,
+            ("m³", self.unit),
+            self.data
+        )
+        self.derivColumn = Table.DerivatedColumn(
+            self.symbol,
+            ("kg", units.kilogram),
+            [self.dataColumn],
+            self.dataSymbol * (units.kilogram/(units.meter**3))
+        )
 
     def test_calc(self):
-        calcData = [(value/self.unit, "kg") for value in self.data]
-        self.assertEqual(list(self.derivColumn.iterDisplay()), calcData)
+        calcData = [(value/self.unit, {}) for value in self.data]
+        self.derivColumn.update(True)
+        self.assertEqual(list(self.derivColumn), calcData)
         del self.derivColumn
         
     def test_multi(self):
         self.dataSymbol2 = sympy.Symbol("s")
-        self.dataColumn2 = Table.DataColumn(
+        self.dataColumn2 = Table.MeasurementColumn(
             self.dataSymbol2,
             ("m/s^2", units.meter/(units.second**2)),
-            [value*(units.mile/(units.hour**2)) for value in range(10)],
-            defaultMagnitude=1
+            [value*(units.mile/(units.hour**2)) for value in range(10)]
         )
         self.derivSymbol2 = sympy.Symbol("F")
         self.derivColumn2 = Table.DerivatedColumn(
             self.derivSymbol2,
             ("N", units.newton),
             [self.dataColumn2, self.derivColumn],
-            self.symbol * self.dataSymbol2,
-            defaultMagnitude=1
+            self.symbol * self.dataSymbol2
         )
-        finalData = [(value*(units.mile**3)*(units.kilogram/(units.meter**3))*value*units.mile/(units.hour**2) / (units.newton)) for value in range(10)]
+        self.derivColumn2.update(True)
+        finalData = [(value*(units.mile**3)*(units.kilogram/(units.meter**3))*value*units.mile/(units.hour**2) / (units.newton), {}) for value in range(10)]
         self.assertEqual(list(self.derivColumn2), finalData)
 
 
@@ -73,41 +79,37 @@ class TableTest(unittest.TestCase):
         
         lengthSymbol = sympy.Symbol("x")
         lengthData = [value*units.m for value in range(10)]
-        table.add(Table.DataColumn(
+        table.add(Table.MeasurementColumn(
             lengthSymbol,
             ("m", units.m),
-            lengthData,
-            defaultMagnitude=1
+            lengthData
         ))
         self.lengthSymbol, self.lengthData = lengthSymbol, lengthData
         
         timeSymbol = sympy.Symbol("t")
         timeData = [value*units.s for value in range(10)]
-        table.add(Table.DataColumn(
+        table.add(Table.MeasurementColumn(
             timeSymbol,
             ("s", units.s),
-            timeData,
-            defaultMagnitude=1
+            timeData
         ))
         self.timeSymbol, self.timeData = timeSymbol, timeData
 
         volumeSymbol = sympy.Symbol("V")
         volumeData = [value*units.m**3 for value in range(10)]
-        table.add(Table.DataColumn(
+        table.add(Table.MeasurementColumn(
             volumeSymbol,
             ("m³", units.m**3),
-            volumeData,
-            defaultMagnitude=1
+            volumeData
         ))
         self.volumeSymbol, self.volumeData = volumeSymbol, volumeData
         
         massSymbol = sympy.Symbol("m")
         massData = [value*units.kg for value in range(1, 11)]
-        table.add(Table.DataColumn(
+        table.add(Table.MeasurementColumn(
             massSymbol,
             ("kg", units.kg),
-            massData,
-            defaultMagnitude=1
+            massData
         ))
         self.massSymbol, self.massData = massSymbol, massData
 
@@ -119,7 +121,8 @@ class TableTest(unittest.TestCase):
             ("kg/cm³", units.kg / (units.cm**3)),
             m / V
         )
-        self.assertEqual(list(col), [sympy.sympify("{0}/({1}*10**6)".format(x, y)) for y, x in zip(range(10), range(1, 11))])
+        col.update(True)
+        self.assertEqual(list(col), [(sympy.sympify("{0}/({1}*10**6)".format(x, y)), {}) for y, x in zip(range(10), range(1, 11))])
 
     def test_unknownSymbol(self):
         foo, bar = sympy.Dummy("foo"), sympy.Dummy("bar")
@@ -156,7 +159,8 @@ class TableTest(unittest.TestCase):
             ("m/s", units.m/units.s),
             dx / dt
         )
-        self.assertEqual(list(velocity), [1] * 9)
+        velocity.update(True)
+        self.assertEqual(list(velocity), [(1, {})] * 9)
 
     def tearDown(self):
         del self.table

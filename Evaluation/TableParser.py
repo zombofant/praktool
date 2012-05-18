@@ -31,8 +31,7 @@ def ParseCSV(data, cols=None, dialect=None):
         if first:
             for field in fields:
                 name, unit = field.split(b'/', 1)
-                cols.append(Table.DataColumn(sympy.Symbol(name), unit, [],
-                                             defaultMagnitude=1))
+                cols.append(Table.MeasurementColumn(sympy.Symbol(name), unit))
         else:
             if len(fields) != len(cols):
                 raise Error('Invalid Table: Incorrect number of columns')
@@ -94,8 +93,7 @@ def ParseGnuplot(data, cols=None, annotation='%', header_sep=None):
                 fields = (x for x in line[2:].strip().split(header_sep) if x)
                 for field in fields:
                     name, unit = field.split(b'/', 1)
-                    cols.append(Table.DataColumn(sympy.Symbol(name), unit, [],
-                                                 defaultMagnitude=1))
+                    cols.append(Table.MeasurementColumn(sympy.Symbol(name), unit, []))
 
             continue
 
@@ -110,6 +108,6 @@ def ParseGnuplot(data, cols=None, annotation='%', header_sep=None):
                 except ValueError:
                     dataItemAsNumber = float(field)
 
-                col.appendRow(dataItemAsNumber * col.unitExpr)
+                col.append(dataItemAsNumber * col.unitExpr)
 
     return cols
