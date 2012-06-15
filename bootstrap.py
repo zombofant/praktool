@@ -90,6 +90,8 @@ data = Table.Table(Parser.ParseGnuplot(open("{1}", "r")))
     template = """\
 
 if __name__ == "__main__":
+    # this must be called before data in any derivated columns is accessed
+    data.updateAll()
 """
     out.write(template)
     if len(args.symbol) > 0:
@@ -97,8 +99,6 @@ if __name__ == "__main__":
         out.write(template.format(
             ", ".join(map(repr, args.symbol))
         ))
-    else:
-        out.write("    pass\n")
     out.close()
 
     os.chmod(args.scriptfile, os.stat(args.scriptfile).st_mode | stat.S_IXUSR | stat.S_IXOTH | stat.S_IXGRP)
