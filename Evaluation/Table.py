@@ -350,31 +350,6 @@ class Table(object):
         ))
         return column
 
-    @staticmethod
-    def diffNth(iterable, n):
-        i = 0
-        iterator = iter(iterable)
-        prev = next(iterator)
-        for item in iterator:
-            i += 1
-            if i == n:
-                i = 0
-                yield item - prev
-                prev = item
-
-    @staticmethod
-    def intNth(iterable, n):
-        i = 0
-        iterator = iter(iterable)
-        s = next(iterator)
-        for item in iterator:
-            i += 1
-            if i == n:
-                i = 0
-                yield s
-                s = 0
-            s += item
-
     def diff(self, symbol_or_name, newSymbol, offset=1, add=True):
         """
         Subtract subsequent items from the column with the given symbol
@@ -391,7 +366,7 @@ class Table(object):
         oldColumn = self[symbol_or_name]
         if len(oldColumn.attachments) > 0:
             raise ValueError("Can only diff columns without attachments")
-        newData = list(self.diffNth(oldColumn.data, offset))
+        newData = list(utils.diffNth(oldColumn.data, offset))
         
         column = MeasurementColumn(
             newSymbol,
@@ -413,7 +388,7 @@ class Table(object):
         oldColumn = self[symbol_or_name]
         if len(oldColumn.attachments) > 0:
             raise ValueError("Can only diff columns without attachments")
-        newData = list(self.intNth(oldColumn.data, count))
+        newData = list(utils.intNth(oldColumn.data, count))
         
         column = MeasurementColumn(
             newSymbol,
