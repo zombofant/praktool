@@ -19,24 +19,28 @@ class empty(unittest.TestCase):
         self.assertRaises(TypeError, utils.empty, nonIterable)
 
 class diffNth(unittest.TestCase):
-    def test_one(self):
-        values = [1, 2, 3, 4, 5]
-        self.assertEqual([1, 1, 1, 1], list(utils.diffNth(values, 1)))
+    def setUp(self):
+        self.values = [1, 2, 3, 4, 5, 6]
+        
+    def test_skip(self):
+        self.assertEqual([1, 1, 1, 1, 1], list(utils.diffNth(self.values, 1)))
+        self.assertEqual([2, 2], list(utils.diffNth(self.values, 2)))
 
-    def test_two(self):
-        values = [1, 2, 3, 4, 5]
-        self.assertEqual([2, 2], list(utils.diffNth(values, 2)))
+    def test_offset(self):
+        self.assertEqual([1, 1, 1, 1], list(utils.diffNth(self.values, 1, offset=1)))
+        self.assertEqual([2, 2], list(utils.diffNth(self.values, 2, offset=1)))
+        self.assertEqual([2], list(utils.diffNth(self.values, 2, offset=2)))
 
 class intNth(unittest.TestCase):
-    def test_one(self):
-        values = [1, 2, 3, 4, 5]
-        self.assertEqual([1, 2, 3, 4, 5], list(utils.intNth(values, 1)))
-        
-    def test_two(self):
-        values = [1, 2, 3, 4, 5]
-        self.assertEqual([3, 7], list(utils.intNth(values, 2)))
-        
-    def test_three(self):
-        values = [1, 2, 3, 4, 5]
-        self.assertEqual([6], list(utils.intNth(values, 3)))
+    def setUp(self):
+        self.values = [1, 2, 3, 4, 5]
+    
+    def test_count(self):
+        self.assertEqual(self.values, list(utils.intNth(self.values, 1)))
+        self.assertEqual([3, 7], list(utils.intNth(self.values, 2)))
+        self.assertEqual([6], list(utils.intNth(self.values, 3)))
 
+    def test_offset(self):
+        self.assertEqual(self.values[1:], list(utils.intNth(self.values, 1, offset=1)))
+        self.assertEqual([5, 9], list(utils.intNth(self.values, 2, offset=1)))
+        self.assertEqual([9], list(utils.intNth(self.values, 3, offset=1)))

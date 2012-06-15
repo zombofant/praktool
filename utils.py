@@ -7,9 +7,11 @@ def empty(iterator):
     except StopIteration:
         return True
 
-def diffNth(iterable, n):
+def diffNth(iterable, n=1, offset=0):
     i = 0
     iterator = iter(iterable)
+    for x in xrange(offset):
+        next(iterator)
     prev = next(iterator)
     for item in iterator:
         i += 1
@@ -18,9 +20,11 @@ def diffNth(iterable, n):
             yield item - prev
             prev = item
 
-def intNth(iterable, n):
+def intNth(iterable, n=1, offset=0):
     i = 0
     iterator = iter(iterable)
+    for x in xrange(offset):
+        next(iterator)
     s = next(iterator)
     for item in iterator:
         i += 1

@@ -7,7 +7,7 @@ import csv
 import sympy
 import sympy.physics.units
 
-import Table
+import Column
 
 class Error(Exception):
     pass
@@ -19,7 +19,7 @@ def ParseCSV(data, cols=None, dialect=None):
     *data* is an iterable returning the lines of the file.
 
     If *cols* is not `None`, it has to be an sequence of
-    :class:`Table.DataColumns`, if it is `None` the columns are
+    :class:`Column.DataColumns`, if it is `None` the columns are
     generated from the first row of the file.
 
     *dialect* is passed to the `csv.reader` constructor as dialect
@@ -31,7 +31,7 @@ def ParseCSV(data, cols=None, dialect=None):
         if first:
             for field in fields:
                 name, unit = field.split(b'/', 1)
-                cols.append(Table.MeasurementColumn(sympy.Symbol(name), unit))
+                cols.append(Column.MeasurementColumn(sympy.Symbol(name), unit))
         else:
             if len(fields) != len(cols):
                 raise Error('Invalid Table: Incorrect number of columns')
@@ -51,14 +51,14 @@ def ParseGnuplot(data, cols=None, annotation='%', header_sep=None):
     """
     Parse a data file in the gnuplot format with additional
     annotations for column names and units. Return the list of
-    :class:`Table.DataColumns` objects.
+    :class:`Column.DataColumns` objects.
 
     `#` is used to introduce comment line.
 
     *data* is an iterable returning the lines of the file.
 
     If *cols* is not `None`, it has to be an sequence of
-    :class:`Table.DataColumns`, if it is `None` the columns are
+    :class:`Column.DataColumns`, if it is `None` the columns are
     generated from the annotation in the file.
 
     *annotation* is the character used directly after `#` to introduce
@@ -94,7 +94,7 @@ def ParseGnuplot(data, cols=None, annotation='%', header_sep=None):
                 fields = (x for x in line[2:].strip().split(header_sep) if x)
                 for field in fields:
                     name, unit = field.split(b'/', 1)
-                    cols.append(Table.MeasurementColumn(sympy.Symbol(name), unit, []))
+                    cols.append(Column.MeasurementColumn(sympy.Symbol(name), unit, []))
 
             continue
 

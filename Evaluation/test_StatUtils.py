@@ -5,14 +5,14 @@ import math
 import sympy
 import sympy.physics.units as units
 
-import Table
+import Column
 import StatUtils
 
 class Mean(unittest.TestCase):
     def test_units(self):
         data = [x*units.m for x in (0.1, 0.2, 0.3)]
         symbol = sympy.Symbol("x")
-        column = Table.MeasurementColumn(
+        column = Column.MeasurementColumn(
             symbol,
             ("m", units.meter),
             data
