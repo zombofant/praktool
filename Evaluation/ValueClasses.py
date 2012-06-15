@@ -13,12 +13,12 @@ class Uncertainty(object):
         return 0
     
     def __unicode__(self):
-        return "uncertainity"
+        return "uncertainty"
 
 class StatisticalUncertainty(Uncertainty):
     def __unicode__(self):
-        return "statistical uncertainity"
+        return "statistical uncertainty"
 
 class SystematicalUncertainty(Uncertainty):
     def __unicode__(self):
-        return "systematical uncertainity"
+        return "systematical uncertainty"
