@@ -13,7 +13,7 @@ class LaTeXPrinter(TablePrinter):
         super(LaTeXPrinter, self).__init__(columnKeys, **kwargs)
         self._format = "{{0:.{0}f}}".format(precision)
         self._secondaryFormat = "{{0:.{0}f}}".format(precision)
-        self._alignment = alignment or 'r' * len(column_keys)
+        self._alignment = alignment or 'r' * len(columnKeys)
 
     def printColumns(self, columns, file=sys.stdout, encoding="utf-8"):
 
@@ -22,14 +22,14 @@ class LaTeXPrinter(TablePrinter):
             print(' '.join(map(self.formatField, row)).encode(encoding), file=file)
 
     def printColumns(self, columns, file=sys.stdout, encoding="utf-8"):
-        print('\begin{tabular}'.encode(encoding), file=file)
+        print(r'\begin{{tabular}}{{{0}}}'.format(self._alignment).encode(encoding), file=file)
 
         print(r'\toprule'.encode(encoding), file=file)
-        print(' & '.join('{0}/{1}'.format(column.symbol, column.unit) for column in columns).encode(encoding), end='\\\\\n'.encode(encoding))
+        print(' & '.join('{0}/{1}'.format(str(column.symbol).decode("utf-8"), str(column.unit).decode("utf-8")) for column in columns).encode(encoding), end=b'\\\\\n', file=file)
         print(r'\midrule'.encode(encoding), file=file)
         tableData = itertools.izip(*columns)
         for row in tableData:
-            print(' & '.join(map(self.formatField, row)).encode(encoding), file=file, end='')
+            print(' & '.join(map(self.formatField, row)).encode(encoding), file=file, end=b'')
             print(r'\\'.encode(encoding), file=file)
         print(r'\bottomrule'.encode(encoding), file=file)
 
