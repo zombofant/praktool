@@ -144,7 +144,7 @@ class Column(object):
         self.attachments = {}
         self.data = []
 
-    def _append(self, value, attachments=None):
+    def rawAppend(self, value, attachments=None):
         if attachments is not None:
             for key, attachment in self.attachments.iteritems():
                 attachmentValue = attachments.get(key, None)
@@ -156,6 +156,8 @@ class Column(object):
             for attachment in self.attachments.itervalues():
                 attachment.appendDefault()
         self.data.append(value)
+
+    _append = rawAppend
 
     def __iter__(self):
         l = len(self.data)
@@ -187,17 +189,17 @@ class MeasurementColumn(Column):
             magnitude=magnitude, **kwargs)
         if data is not None:
             if noUnits:
-                collections.deque(map(self._append, data), maxlen=0)
+                collections.deque(map(self.rawAppend, data), maxlen=0)
             else:
                 collections.deque(map(self.append, data), maxlen=0)
 
     def append(self, row):
         if isinstance(row, (float, int, long, sp.Expr)):
-            self._append(row / self.unitExpr)
+            self.rawAppend(row / self.unitExpr)
         elif hasattr(row, "__iter__"):
             unitExpr = self.unitExpr
             mean, stddev = StatUtils.mean(map(lambda x: x / unitExpr, row))
-            self._append(mean, {
+            self.rawAppend(mean, {
                 ValueClasses.StatisticalUncertainty: stddev
             })
         else:
@@ -240,7 +242,7 @@ class DerivatedColumn(Column):
             value = unitfreeExpr.subs(valueSubs)
             for key in attachments:
                 attachmentDict[key] = sympyUtils.setUndefinedTo(errorExpr.subs(valueSubs).subs(attachmentSubs[key]), 0)
-            self._append(value, attachmentDict)
+            self.rawAppend(value, attachmentDict)
 
 
 class ConstColumn(Column):
