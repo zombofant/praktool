@@ -112,6 +112,34 @@ class ColumnAttachment(object):
 
 
 class Column(object):
+    """
+    Represents a set of data points in a Table object. These may be
+    virtual (i.e. created on the fly by :meth:`update`) or static (i.e.
+    given by the user at creation time or inserted manually).
+
+    The end-user will probably want to use :cls:`MeasurementColumn` and
+    :cls:`DerivatedColumn` mainly, probably by using the more convenient
+    interface provided by :cls:`Table`.
+
+    *symbol* is expected to be a sympy symbol which is used to reference
+    the column. This mainly has effect when used with a Table and for
+    derivating columns from other columns.
+
+    *unit* must be one of the following
+    * a string which can be parsed into a unit by using only identifiers
+      declared in the :mod:`sympy.physics.units` module
+    * a sympy expression which contains units
+    * a tuple of a string used as display-name for the unit and a sympy
+      expression which represents the unit.
+
+    If only the sympy expression is given, it will be converted into a
+    string to be used as display name. This will most likely look ugly,
+    so its recommended to supply a nice name for the unit yourself.
+
+    *magnitude* can be a factor which is applied when printing the
+    column, but this is mostly obsolete by now.
+    """
+    
     def __init__(self, symbol, unit, magnitude=1, **kwargs):
         super(Column, self).__init__(**kwargs)
         self.attachments = dict()
@@ -133,18 +161,54 @@ class Column(object):
         self.magnitude = magnitude
         self.clear()
 
-    def newAttachment(self, key, default=None):
+    def attach(self, key, default=None):
+        """
+        Attach a uncertainty to the column.
+
+        *key* must be a derivate of :cls:`Uncertainty` or similar. If an
+        attachment with the given *key* already exists, it is rejected
+        with a *KeyError*.
+
+        *default* may be given if the column does not contain any data
+        yet, but is mandatory if there is already data in the column.
+        *default* is used to fill any unset values for the attachment,
+        for example when adding new values to the column which do not
+        specify the value for the attachment or if there are already
+        values in the column.
+
+        *default* may be *None*, but this will raise a ValueError if
+        any unspecified values occur (i.e. appending values without
+        attachment information or already existing values).
+        """
         if key in self.attachments:
             raise KeyError("Attachment {0} already defined".format(key))
         self.attachments[key] = ColumnAttachment(key, default=default, initialLength=len(self))
 
-    attach = newAttachment
+    newAttachment = attach
 
     def clear(self):
+        """
+        Delete all data from the column.
+        """
         self.attachments = {}
         self.data = []
 
     def rawAppend(self, value, attachments=None):
+        """
+        Append a value, possibly with attachments, to the column.
+
+        *value* must be the unitless representation of the value, in
+        units of :attr:`unitExpr`. In the future, adding a value
+        which contains units may raise an exception. Currently, it will
+        certainly wreak havoc on your calculations.
+
+        *attachments* may be a `dict` or *None*. If it's a `dict`, the
+        keys must be valid attachment keys and present in the object.
+        If an attachment key is not defined but declared in the object,
+        the default value will be used (if any). If no default value
+        has been specified for a given attachment, a *ValueError* will
+        be raised.
+        """
         if attachments is not None:
             for key, attachment in self.attachments.iteritems():
                 attachmentValue = attachments.get(key, None)
@@ -180,7 +244,15 @@ class Column(object):
 
     @abc.abstractmethod
     def update(self, forceDeep=False):
-        pass
+        """
+        This must be overriden by derivated classes to specify their
+        behaviour on updating.
+
+        *forceDeep* may be set to True. If that is the case, a column
+        must force all columns it depends on to update too. This will
+        not be the case during normal operation, as a dependency graph
+        is used to calculate the optimal updating route.
+        """
 
     def mean(self):
         """
@@ -193,6 +265,23 @@ class Column(object):
 
 
 class MeasurementColumn(Column):
+    """
+    The measurement column holds static values created by measurement.
+    Nevertheless it may be manipulated during script runtime by the
+    application. An end-user will probably not want to create such a
+    column by hand, but use a :mod:`TableParser` to read a data file.
+
+    *symbol* and *unit* are the same as for :cls:`Column`.
+
+    *data* may be an iterable which is appended to the column right at
+    the beginning.
+
+    If *noUnits* is set to `True` (default is `False`), it will be
+    assumed that the data given in *data* is in units of the Column and
+    thus must not be treated specially. Also no transformation for
+    nested iterables (see :meth:`append`) will be made.
+    """
+    
     def __init__(self, symbol, unit, data=None, magnitude=1, noUnits=False, **kwargs):
         super(MeasurementColumn, self).__init__(symbol, unit,
             magnitude=magnitude, **kwargs)
@@ -203,6 +292,18 @@ class MeasurementColumn(Column):
                 collections.deque(map(self.append, data), maxlen=0)
 
     def append(self, row):
+        """
+        Convenience function to append a row to the column.
+
+        *row* must be one of the following:
+        * a numeric expression, including a sumpy expression. It will be
+          assumed to have a unit attached, so it will be divided by
+          :attr:`unitExpr`.
+        * an iterable of numeric values like above. All values will be
+          made unitless and the mean is added to the column. If
+          declared, the attachment for statistical uncertainty will be
+          set to the standard deviation of the mean.
+        """
         if isinstance(row, (float, int, long, sp.Expr)):
             self.rawAppend(row / self.unitExpr)
         elif hasattr(row, "__iter__"):
@@ -219,6 +320,20 @@ class MeasurementColumn(Column):
 
 
 class DerivatedColumn(Column):
+    """
+    Manages derivation of data from other columns. An end-user will
+    probably not want to create a column of this type manually but use
+    the convenient interface of :cls:`Table`.
+
+    *symbol* and *unit* are the same as for :cls:`Column`.
+
+    *expression* must be an sympy expression with unknowns which
+    represent the values of other columns. 
+
+    *sources* must be an iterable of columns on which the given
+    expression depends.
+    """
+    
     def __init__(self, symbol, unit, sources, expression, magnitude=1, **kwargs):
         super(DerivatedColumn, self).__init__(symbol, unit, magnitude=magnitude)
         self.sources = frozenset(sources)

@@ -78,7 +78,7 @@ class Table(object):
         ValueError will be raised (as this means that your expression
         does not yield the unit you requested).
 
-        Return the new DerivatedColumn object.
+        Return the new :cls:`DerivatedColumn` object.
         """
         self.symbolAvailable(symbol)
         
@@ -115,10 +115,17 @@ class Table(object):
         or name and store the result in a new column with the given new
         symbol.
 
-        This is equal to numerical forward differentiation, giving a new
-        column with one item less than the previous column.
+        *offset* specifies how many items are between the two items
+        which are subtracted from each other.
 
-        Return the new DataColumn object
+        For `offset=1`, this is equal to numerical forward
+        differentiation, giving a new column with one item less than the
+        previous column.
+
+        If *add* is set to *False*, the column will not be added to the
+        table but returned only.
+
+        Return the new :cls:`MeasurementColumn` object.
         """
         if add:
             self.symbolAvailable(newSymbol)
@@ -140,7 +147,18 @@ class Table(object):
 
     def integrate(self, symbol_or_name, newSymbol, offset=0, count=1, add=True):
         """
-        Return the new DataColumn object
+        Sums consecutive rows in the column identified by the given
+        *symbol or name* and creates a new column with *newSymbol* from
+        that.
+
+        *count* items are added up together, starting from the
+        *offset*th item. So for `offset=0, count=1` this is the identity
+        operation.
+        
+        If *add* is set to *False*, the column will not be added to the
+        table but returned only.
+        
+        Return the new :cls:`MeasurementColumn` object.
         """
         if add:
             self.symbolAvailable(newSymbol)
@@ -161,6 +179,25 @@ class Table(object):
         return column
 
     def join(self, newSymbol, args, propagateSystematical=False, addError=0, newUnit=None):
+        """
+        Joins several columns with similar content together. The cells
+        of each row are joined together column-wise by calculating the
+        mean. The statistical error gained from that is attached in the
+        result column.
+
+        Any uncertainty attachment on the source columns is **not**
+        propagated for now.
+
+        *addError* can be used to add a constant value to the estimated
+        error calculated from the statistical operation.
+
+        *propagateSystematical* can be set to *True* to enable
+        rudimentary propagation of systematical uncertainties from the
+        source columns. These are just averaged together and attached
+        to the new column.
+
+        Returns the new :cls:`MeasurementColumn` object.
+        """
         sources = list(map(self.__getitem__, args))
         if len(args) < 2:
             raise ValueError("Join must have at least two columns to join")
@@ -201,6 +238,15 @@ class Table(object):
         updated.add(node)
 
     def updateAll(self):
+        """
+        Updates all columns in the table. For this, a recursion is done
+        through the dependency graph of the columns, updating them in
+        optimal order and each column exactly once.
+
+        If any cyclic references between columns occur or the graph is
+        too deep (i.e. too many dependend columns), a ValueError is
+        raised.
+        """
         updated = set()
         try:
             for col in self.columns.itervalues():
