@@ -30,7 +30,7 @@ import Evaluation.Table as Table
 import Evaluation.TableParser as Parser
 import Evaluation.StatUtils as StatUtils
 from Document.TablePrinter import SimplePrinter
-from Evaluation.ValueClasses import StatisticalUncertainity, SystematicalUncertainity
+from Evaluation.ValueClasses import StatisticalUncertainty, SystematicalUncertainty
 import CODATA
 CODATA.patchUnits()
 
@@ -92,7 +92,7 @@ if __name__ == "__main__":
         ("m", units.m),
         g,
         {
-            StatisticalUncertainity: dg
+            StatisticalUncertainty: dg
         },
         len(data["phi"])
     )).symbol
@@ -126,5 +126,5 @@ if __name__ == "__main__":
     data.updateAll()
     SimplePrinter(
         ["phi", "lambda", "lambda_balmer", "difference"],
-        [StatisticalUncertainity]
+        [StatisticalUncertainty]
     )(data)

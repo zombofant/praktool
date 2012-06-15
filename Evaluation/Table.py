@@ -198,7 +198,7 @@ class MeasurementColumn(Column):
             unitExpr = self.unitExpr
             mean, stddev = StatUtils.mean(map(lambda x: x / unitExpr, row))
             self._append(mean, {
-                ValueClasses.StatisticalUncertainity: stddev
+                ValueClasses.StatisticalUncertainty: stddev
             })
         else:
             raise TypeError("Row must be ((numeric or sympy) expr for single values or iterable) for automatic statistics")
@@ -437,9 +437,9 @@ class Table(object):
             newSymbol,
             (args[0].unit, args[0].unitExpr)
         )
-        column.newAttachment(ValueClasses.StatisticalUncertainity, default=0)
+        column.newAttachment(ValueClasses.StatisticalUncertainty, default=0)
         if propagateSystematical:
-            column.newAttachment(ValueClasses.SystematicalUncertainity, default=0)
+            column.newAttachment(ValueClasses.SystematicalUncertainty, default=0)
         for cells in itertools.izip(*args):
             values = list(map(lambda x: x[0], cells))
             mean, stddev = StatUtils.mean(values)
@@ -447,12 +447,12 @@ class Table(object):
             if propagateSystematical:
                 syst = []
                 for value, attachment in cells:
-                    currSyst = attachment.get(ValueClasses.SystematicalUncertainity, None)
+                    currSyst = attachment.get(ValueClasses.SystematicalUncertainty, None)
                     if currSyst is not None:
                         syst.append(currSyst)
                 if len(syst) > 0:
-                    attachmentDict[ValueClasses.SystematicalUncertainity] = sum(syst) / len(syst)
-            attachmentDict[ValueClasses.StatisticalUncertainity] = stddev + addError
+                    attachmentDict[ValueClasses.SystematicalUncertainty] = sum(syst) / len(syst)
+            attachmentDict[ValueClasses.StatisticalUncertainty] = stddev + addError
             column._append(mean, attachmentDict)
         self.add(column)
 

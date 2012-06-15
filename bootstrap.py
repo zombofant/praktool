@@ -67,8 +67,8 @@ import sympy.physics.units as units
 import Evaluation.Table as Table
 import Evaluation.TableParser as Parser
 import Evaluation.StatUtils as StatUtils
-from Document.TablePrinter import SimplePrinter
-from Evaluation.ValueClasses import StatisticalUncertainity, SystematicalUncertainity
+from Document.TablePrinter import SimplePrinter, LaTeXPrinter
+from Evaluation.ValueClasses import StatisticalUncertainty, SystematicalUncertainty
 import CODATA
 CODATA.patchUnits()
 

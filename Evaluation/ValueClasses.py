@@ -7,7 +7,7 @@ import itertools
 
 import sympy as sp
 
-class Uncertainity(object):
+class Uncertainty(object):
     @staticmethod
     def getDefault():
         return 0
@@ -15,10 +15,10 @@ class Uncertainity(object):
     def __unicode__(self):
         return "uncertainity"
 
-class StatisticalUncertainity(Uncertainity):
+class StatisticalUncertainty(Uncertainty):
     def __unicode__(self):
         return "statistical uncertainity"
 
-class SystematicalUncertainity(Uncertainity):
+class SystematicalUncertainty(Uncertainty):
     def __unicode__(self):
         return "systematical uncertainity"

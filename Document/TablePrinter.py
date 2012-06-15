@@ -8,10 +8,10 @@ import itertools
 import sympy as sp
 
 from Evaluation.ValueClasses import (
-    StatisticalUncertainity, SystematicalUncertainity, Uncertainity)
+    StatisticalUncertainty, SystematicalUncertainty, Uncertainty)
 
 class TablePrinter(object):
-    defaultAttachments = [StatisticalUncertainity, SystematicalUncertainity]
+    defaultAttachments = [StatisticalUncertainty, SystematicalUncertainty]
 
     def __init__(self, columnKeys, attachments=defaultAttachments, merge=False, **kwargs):
         super(TablePrinter, self).__init__(**kwargs)
