@@ -138,6 +138,8 @@ class Column(object):
             raise KeyError("Attachment {0} already defined".format(key))
         self.attachments[key] = ColumnAttachment(key, default=default, initialLength=len(self))
 
+    attach = newAttachment
+
     def clear(self):
         self.attachments = {}
         self.data = []
@@ -264,6 +266,22 @@ class Table(object):
     Maintains a measurement table representation.
     """
 
+    @classmethod
+    def Diff(cls, sourceTable, columnSymbols, offset=1, **kwargs):
+        if offset < 1:
+            raise ValueError("offset must be greater than or equal to 1. Got {0}".format(offset))
+        symbols = [sourceTable[symbolName].symbol for symbolName in columnSymbols]
+        columns = [sourceTable.diff(symbol, symbol, offset=offset, add=False) for symbol in symbols]
+        return cls(columns=columns, **kwargs)
+
+    @classmethod
+    def Integrate(cls, sourceTable, columnSymbols, count=1, **kwargs):
+        if count < 1:
+            raise ValueError("count must be greater than or equal to 1. Got {0}".format(count))
+        symbols = [sourceTable[symbolName].symbol for symbolName in columnSymbols]
+        columns = [sourceTable.integrate(symbol, symbol, count=count, add=False) for symbol in symbols]
+        return cls(columns=columns, **kwargs)
+
     def __init__(self, columns=(), **kwargs):
         super(Table, self).__init__(**kwargs)
         self.columns = {}
@@ -332,7 +350,32 @@ class Table(object):
         ))
         return column
 
-    def diff(self, symbol_or_name, newSymbol):
+    @staticmethod
+    def diffNth(iterable, n):
+        i = 0
+        iterator = iter(iterable)
+        prev = next(iterator)
+        for item in iterator:
+            i += 1
+            if i == n:
+                i = 0
+                yield item - prev
+                prev = item
+
+    @staticmethod
+    def intNth(iterable, n):
+        i = 0
+        iterator = iter(iterable)
+        s = next(iterator)
+        for item in iterator:
+            i += 1
+            if i == n:
+                i = 0
+                yield s
+                s = 0
+            s += item
+
+    def diff(self, symbol_or_name, newSymbol, offset=1, add=True):
         """
         Subtract subsequent items from the column with the given symbol
         or name and store the result in a new column with the given new
@@ -343,21 +386,47 @@ class Table(object):
 
         Return the new DataColumn object
         """
-        self.symbolAvailable(newSymbol)
+        if add:
+            self.symbolAvailable(newSymbol)
         oldColumn = self[symbol_or_name]
         if len(oldColumn.attachments) > 0:
             raise ValueError("Can only diff columns without attachments")
-        newData = np.diff(np.fromiter(oldColumn.data, np.float64))
-        column = self.add(MeasurementColumn(
+        newData = list(self.diffNth(oldColumn.data, offset))
+        
+        column = MeasurementColumn(
             newSymbol,
             (oldColumn.unit, oldColumn.unitExpr),
             newData,
             magnitude=oldColumn.magnitude,
             noUnits=True
-        ))
+        )
+        if add:
+            self.add(column)
         return column
 
-    def join(self, newSymbol, args, propagateSystematical=False, addError=0):
+    def integrate(self, symbol_or_name, newSymbol, count=1, add=True):
+        """
+        Return the new DataColumn object
+        """
+        if add:
+            self.symbolAvailable(newSymbol)
+        oldColumn = self[symbol_or_name]
+        if len(oldColumn.attachments) > 0:
+            raise ValueError("Can only diff columns without attachments")
+        newData = list(self.intNth(oldColumn.data, count))
+        
+        column = MeasurementColumn(
+            newSymbol,
+            (oldColumn.unit, oldColumn.unitExpr),
+            newData,
+            magnitude=oldColumn.magnitude,
+            noUnits=True
+        )
+        if add:
+            self.add(column)
+        return column
+
+    def join(self, newSymbol, args, propagateSystematical=False, addError=0, newUnit=None):
         sources = list(map(self.__getitem__, args))
         if len(args) < 2:
             raise ValueError("Join must have at least two columns to join")
@@ -382,7 +451,7 @@ class Table(object):
                     if currSyst is not None:
                         syst.append(currSyst)
                 if len(syst) > 0:
-                    attachmentDict[ValueClasses.SystematicalUncertainity] = syst / len(syst)
+                    attachmentDict[ValueClasses.SystematicalUncertainity] = sum(syst) / len(syst)
             attachmentDict[ValueClasses.StatisticalUncertainity] = stddev + addError
             column._append(mean, attachmentDict)
         self.add(column)

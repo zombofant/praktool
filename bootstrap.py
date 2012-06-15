@@ -1,8 +1,12 @@
 #!/usr/bin/python3
 import sys
 import argparse
+import os
+import stat
 
 if __name__ == "__main__":
+    PROGNAME = os.path.basename(sys.argv[0])
+    
     parser = argparse.ArgumentParser(
         description="""\
 Bootstrap a experiment evaluation script. The script is stored to
@@ -15,6 +19,13 @@ the table into the local namespace."""
         "scriptfile",
         metavar="SCRIPTFILE",
         help="Name of the script file to create."
+    )
+    parser.add_argument(
+        "-f", "--force",
+        dest="force",
+        default=False,
+        action="store_true",
+        help="You may use the --force to overwrite the target scriptfile. Default is off, to protect you from overwriting your data."
     )
     parser.add_argument(
         "-p", "--praktool-dir",
@@ -35,6 +46,10 @@ the table into the local namespace."""
     )
 
     args = parser.parse_args(sys.argv[1:])
+
+    if os.path.exists(args.scriptfile):
+        if os.path.isfile(args.scriptfile) and not args.force:
+            print("{0}: scriptfile {1!r} already exists, use the --force luke.".format(PROGNAME, args.scriptfile))
 
     out = open(args.scriptfile, "w")
     template = """\
@@ -78,12 +93,14 @@ if __name__ == "__main__":
 """
     out.write(template)
     if len(args.symbol) > 0:
-        template = "    SimplePrinter({0})(data, file=sys.stdout)\n"
+        template = "    SimplePrinter([{0}])(data, file=sys.stdout)\n"
         out.write(template.format(
             ", ".join(map(repr, args.symbol))
         ))
     else:
         out.write("    pass\n")
     out.close()
+
+    os.chmod(args.scriptfile, os.stat(args.scriptfile).st_mode | stat.S_IXUSR | stat.S_IXOTH | stat.S_IXGRP)
 else:
     raise ImportError("Thou shalt not import this script.")

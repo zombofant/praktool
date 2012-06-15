@@ -78,7 +78,7 @@ def ParseGnuplot(data, cols=None, annotation='%', header_sep=None):
      """
 
     for line in data:
-        line = line.strip()
+        line = line.strip().decode("utf-8")
         if not line:
             continue
 
@@ -90,6 +90,7 @@ def ParseGnuplot(data, cols=None, annotation='%', header_sep=None):
                     warnings.warn('In file column specification ignored!')
                     continue
 
+                line = line.encode("ascii")
                 fields = (x for x in line[2:].strip().split(header_sep) if x)
                 for field in fields:
                     name, unit = field.split(b'/', 1)
@@ -98,6 +99,7 @@ def ParseGnuplot(data, cols=None, annotation='%', header_sep=None):
             continue
 
         else:
+            line = line.encode("ascii")
             fields = line.split()
             if len(fields) != len(cols):
                 raise Error('Invalid Table: Incorrect number of columns')
