@@ -182,6 +182,15 @@ class Column(object):
     def update(self, forceDeep=False):
         pass
 
+    def mean(self):
+        """
+        Calculate the mean value and the standard deviation of the
+        column using :func:`StatUtils.mean` and return those including
+        the unit suffix.
+        """
+        value, stddev = StatUtils.mean(self.data)
+        return value * self.unitExpr, stddev * self.unitExpr
+
 
 class MeasurementColumn(Column):
     def __init__(self, symbol, unit, data=None, magnitude=1, noUnits=False, **kwargs):
