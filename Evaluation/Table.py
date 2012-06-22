@@ -18,7 +18,7 @@ import sympyUtils
 import StatUtils
 import ValueClasses
 import Column
-from Column import MeasurementColumn, DerivatedColumn
+from Column import MeasurementColumn, DerivatedColumn, ConstColumn
 
 class Table(object):
     """
@@ -58,6 +58,37 @@ class Table(object):
             raise KeyError("Duplicate symbol: {0}".format(column.symbol))
         self.symbolNames[unicode(column.symbol)] = column.symbol
         return column
+
+    def single(self, symbol, unit, value, **kwargs):
+        self.symbolAvailable(symbol)
+        col = MeasurementColumn(
+            symbol,
+            unit
+        )
+        col.rawAppend(value / col.unitExpr)
+        self.add(col)
+        return col
+
+    def const(self, symbol, unit, value, attachments, length=None, **kwargs):
+        self.symbolAvailable(symbol)
+        if length is None:
+            updated = set()
+            node = next(self.columns.itervalues())
+            # we need one node of which we know for sure that the length
+            # is correct
+            self._updateNode(node, updated)
+            length = len(node.data)
+
+        col = ConstColumn(
+            symbol,
+            unit,
+            value,
+            attachments,
+            length,
+            **kwargs
+        )
+        self.add(col)
+        return col
 
     def derivate(self, symbol, unit, expression, defaultMagnitude=1, **kwargs):
         """

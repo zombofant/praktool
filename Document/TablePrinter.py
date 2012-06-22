@@ -35,17 +35,17 @@ class TablePrinter(object):
     def sqr(value):
         return value**2
 
-    def formatField(self, field):
+    def formatField(self, field, errorJoiner="±"):
         attachments = field[1]
         values = []
         values.extend(map(lambda x: attachments.get(x, 0), self.attachments))
         main = self._format.format(self.toFloat(field[0]))
-        mid = ("±" if len(values) > 0 else "")
+        mid = (errorJoiner if len(values) > 0 else "")
         if self._merge:
             attachments = sp.sqrt(sum(map(self.sqr, map(self.toFloat, values))))
             attachments = self._secondaryFormat.format(float(attachments))
         else:
-            attachments = ("±".join(map(self._secondaryFormat.format, map(self.toFloat, values))))
+            attachments = (errorJoiner.join(map(self._secondaryFormat.format, map(self.toFloat, values))))
         return main+mid+attachments
 
     def __call__(self, table, file=sys.stdout):
