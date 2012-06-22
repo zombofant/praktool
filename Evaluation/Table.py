@@ -77,8 +77,8 @@ class Table(object):
             # we need one node of which we know for sure that the length
             # is correct
             self._updateNode(node, updated)
-            length = len(node.data)
-
+            length = len(node)
+        
         col = ConstColumn(
             symbol,
             unit,

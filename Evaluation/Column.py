@@ -186,6 +186,15 @@ class Column(object):
 
     newAttachment = attach
 
+    def relAttach(self, key, factor, additive=True):
+        if not key in self.attachments:
+            self.attach(key, 0.)
+        elif not additive:
+            self.attachments[key].data = [0] * len(self)
+        targetList = self.attachments[key].data
+        for i, value in enumerate(self.data):
+            targetList[i] += value * factor
+
     def clear(self):
         """
         Delete all data from the column.
