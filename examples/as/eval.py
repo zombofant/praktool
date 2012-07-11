@@ -126,5 +126,5 @@ if __name__ == "__main__":
     data.updateAll()
     SimplePrinter(
         ["phi", "lambda", "lambda_balmer", "difference"],
-        [StatisticalUncertainty]
+        attachments=[StatisticalUncertainty]
     )(data)
