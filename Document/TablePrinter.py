@@ -55,12 +55,12 @@ class TablePrinter(object):
 
 class SimplePrinter(TablePrinter):
     def __init__(self, columnKeys, precision=6, width=12, **kwargs):
+        precision = int(precision)
         super(SimplePrinter, self).__init__(columnKeys, **kwargs)
         self._format = "{{0:{0}.{1}f}}".format(width, precision)
         self._secondaryFormat = "{{0:.{0}f}}".format(precision)
 
     def printColumns(self, columns, file=sys.stdout, encoding="utf-8"):
-
         tableData = itertools.izip(*columns)
         for row in tableData:
             print(' '.join(map(self.formatField, row)).encode(encoding), file=file)

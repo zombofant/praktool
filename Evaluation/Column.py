@@ -186,14 +186,20 @@ class Column(object):
 
     newAttachment = attach
 
-    def relAttach(self, key, factor, additive=True):
+    def customAttach(self, key, func):
         if not key in self.attachments:
             self.attach(key, 0.)
-        elif not additive:
-            self.attachments[key].data = [0] * len(self)
         targetList = self.attachments[key].data
         for i, value in enumerate(self.data):
-            targetList[i] += value * factor
+            targetList[i] = func(value, targetList[i])
+
+    def relAttach(self, key, factor, additive=True):
+        if additive:
+            f = lambda x, y: y + x*factor
+        else:
+            f = lambda x, y: x*factor
+        self.customAttach(key, f)
+        
 
     def clear(self):
         """
@@ -231,6 +237,13 @@ class Column(object):
         self.data.append(value)
 
     _append = rawAppend
+
+    def __getitem__(self, index):
+        v = [self.data[index]]
+        v.append(
+            dict(((key, attachment.data[index]) for key, attachment in self.attachments.items()))
+        )
+        return v
 
     def __iter__(self):
         l = len(self.data)
