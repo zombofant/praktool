@@ -13,11 +13,14 @@ from Evaluation.ValueClasses import (
 class TablePrinter(object):
     defaultAttachments = [StatisticalUncertainty, SystematicalUncertainty]
 
-    def __init__(self, columnKeys, attachments=defaultAttachments, merge=False, **kwargs):
+    def __init__(self, columnKeys, attachments=defaultAttachments, merge=False,
+            error_joiner="±",
+            **kwargs):
         super(TablePrinter, self).__init__(**kwargs)
         self._columnKeys = columnKeys
         self.attachments = list(attachments)
         self._merge = merge
+        self._error_joiner = error_joiner
 
     @abc.abstractmethod
     def printColumns(self, columns, file=sys.stdout):
@@ -35,7 +38,8 @@ class TablePrinter(object):
     def sqr(value):
         return value**2
 
-    def formatField(self, field, errorJoiner="±"):
+    def formatField(self, field):
+        errorJoiner = self._error_joiner
         attachments = field[1]
         values = []
         values.extend(map(lambda x: attachments.get(x, 0), self.attachments))
