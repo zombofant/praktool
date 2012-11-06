@@ -22,7 +22,7 @@ def linearRegression(table, cx, cy):
 
     s = 1.0
 
-    for x, y in itertools.izip(table[cx], table[cy]):
+    for x, y in itertools.izip(table[cx].data, table[cy].data):
         w = 1.0/(s*s)
 
         b1 += w
@@ -37,5 +37,7 @@ def linearRegression(table, cx, cy):
 
     m = (b1*c2 - b2*c1) / det
     n = (c1*a2 - c2*a1) / det
+    em = 0
+    en = 0
 
     return ((m, em), (n, en))
