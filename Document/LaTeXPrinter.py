@@ -21,11 +21,15 @@ class LaTeXPrinter(TablePrinter):
         for row in tableData:
             print(' '.join(map(self.formatField, row)).encode(encoding), file=file)
 
+    def siunitx_encode(self, unitexpr):
+        # no, thats not perl
+        return "\\"+unitexpr.replace("*", "\\").replace("/", "\\per\\")
+
     def printColumns(self, columns, file=sys.stdout, encoding="utf-8"):
         print(r'\begin{{tabular}}{{{0}}}'.format(self._alignment).encode(encoding), file=file)
 
         print(r'\toprule'.encode(encoding), file=file)
-        print(' & '.join('{0}/{1}'.format(str(column.symbol).decode("utf-8"), str(column.unit).decode("utf-8")) for column in columns).encode(encoding), end=b'\\\\\n', file=file)
+        print(' & '.join('${0}\,\,[\si{{{1}}}]$'.format(self.map_symbol(str(column.symbol).decode("utf-8")), self.siunitx_encode(str(column.unit).decode("utf-8"))) for column in columns).encode(encoding), end=b'\\\\\n', file=file)
         print(r'\midrule'.encode(encoding), file=file)
         tableData = itertools.izip(*columns)
         for row in tableData:

@@ -12,6 +12,15 @@ import Column
 class Error(Exception):
     pass
 
+def split_header_field(field):
+    splitted = field.split(b'/', 1)
+    if len(splitted) == 1:
+        unit = "1"
+        name = splitted[0]
+    else:
+        name, unit = splitted
+    return name, unit
+
 def ParseCSV(data, cols=None, dialect=None):
     """
     Parse a data file in the csv format.
@@ -30,7 +39,7 @@ def ParseCSV(data, cols=None, dialect=None):
     for fields in csv.reader(lines, dialect=dialect):
         if first:
             for field in fields:
-                name, unit = field.split(b'/', 1)
+                name, unit = split_header_field(field)
                 cols.append(Column.MeasurementColumn(sympy.Symbol(name), unit))
         else:
             if len(fields) != len(cols):
@@ -47,7 +56,8 @@ def ParseCSV(data, cols=None, dialect=None):
         first = False
     return cols
 
-def ParseGnuplot(data, cols=None, annotation='%', header_sep=None):
+def ParseGnuplot(data, cols=None, annotation='%', header_sep=None,
+        force_header=False):
     """
     Parse a data file in the gnuplot format with additional
     annotations for column names and units. Return the list of
@@ -82,18 +92,20 @@ def ParseGnuplot(data, cols=None, annotation='%', header_sep=None):
         if not line:
             continue
 
-        if line.startswith('#'):
-            if line.startswith('#' + annotation):
+        if line.startswith('#') or force_header:
+            if line.startswith('#' + annotation) or force_header:
+                force_header = False
                 if cols is None:
                     cols = []
                 else:
                     warnings.warn('In file column specification ignored!')
                     continue
-
+                if line.startswith('#' + annotation):
+                    line = line[len(annotation)+1:]
                 line = line.encode("ascii")
-                fields = (x for x in line[2:].strip().split(header_sep) if x)
+                fields = (x for x in line.strip().split(header_sep) if x)
                 for field in fields:
-                    name, unit = field.split(b'/', 1)
+                    name, unit = split_header_field(field)
                     cols.append(Column.MeasurementColumn(sympy.Symbol(name), unit, []))
 
             continue
