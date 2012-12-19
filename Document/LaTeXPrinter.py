@@ -23,7 +23,8 @@ class LaTeXPrinter(TablePrinter):
 
     def siunitx_encode(self, unitexpr):
         # no, thats not perl
-        return "\\"+unitexpr.replace("*", "\\").replace("/", "\\per\\")
+        return ("\\"+unitexpr.replace("*", "\\").replace("/", "\\per\\"))\
+                            .replace("\\1", "")
 
     def printColumns(self, columns, file=sys.stdout, encoding="utf-8"):
         print(r'\begin{{tabular}}{{{0}}}'.format(self._alignment).encode(encoding), file=file)
