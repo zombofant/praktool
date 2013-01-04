@@ -3,6 +3,7 @@ from __future__ import print_function
 __all__ = ["mean", "propagate_eval"]
 
 import sympy as sp
+import math
 
 def mean(data):
     """
@@ -42,7 +43,7 @@ def buildErrorExpression(expr, symbols):
         diffs += (sp.diff(expr, symbol) * dsymbol)**2
     return sp.sqrt(diffs)
 
-def propagate_eval(expr, values):
+def propagate_eval(expr, values, out_unit=None):
     """
     Return the result of *expr* with *values* and the result of the gaussian
     error propagation.
@@ -75,3 +76,87 @@ def propagate_eval(expr, values):
 
     return result_value, error_value
 
+def round_to_significant_digits(value, digits, exponent=None):
+    if digits == 0:
+        raise ValueError("Cannot round to 0 digits")
+    if exponent is None:
+        try:
+            exponent = int(math.floor(math.log10(abs(value) / 4)))
+        except ValueError:
+            exponent = 1
+
+    significant_digits = (digits - exponent) - 1
+
+    factor = 10**(-significant_digits)
+    value = round(value / factor) * factor
+
+    fmt_digits = max(significant_digits, 0)
+
+    return value, fmt_digits
+
+def digit_rounding(v, digits):
+    if digits is None:
+        return "{}".format(v)
+    else:
+        value, fmt_digits = round_to_significant_digits(v, digits)
+        return "{{:.{}f}}".format(fmt_digits).format(value)
+
+def error_rounding(v, dv, force_digits=None):
+    """
+    Round and format the numeric value *v* to a string, treating the
+    value *dv* as uncertainty on *v*. Return a tuple with the two
+    strings, one resembling the rounded value of *v* and one resembling
+    the rounded value of *dv*.
+
+    If *force_digits* is not :data:`None`, it must be the integer number
+    of significant digits which are to be displayed. If *force_digits*
+    is :data:`None`, the amount of significant digits to be displayed
+    is determined from *dv*.
+    """
+    v, dv = float(v), float(dv)
+    try:
+        err_exponent = int(math.floor(math.log10(abs(dv) / 4)))
+    except ValueError:
+        err_exponent = 1
+    try:
+        v_exponent = int(math.ceil(math.log10(abs(v))))
+    except ValueError:
+        v_exponent = err_exponent
+
+    if force_digits is None:
+        digits = (v_exponent - err_exponent) + 1
+        if digits < 0:
+            digits = 2
+    else:
+        digits = int(force_digits)
+
+    v, fmt_digits = round_to_significant_digits(v, digits, v_exponent)
+    dv, _ = round_to_significant_digits(dv, digits, v_exponent)
+
+    fmt_str = "{{:.{digits}f}}".format(digits=fmt_digits)
+    return fmt_str.format(v), fmt_str.format(dv)
+
+def siunitx_number(vdv):
+    """
+    Take a tuple (*v*, *dv*) and format it as siunitx number *v* with
+    uncertainty *dv* (without \\num macro).
+    """
+    return "{} +- {}".format(*vdv)
+
+def siunitx_rounding(v, dv, siunit=None, force_digits=None):
+    """
+    Produce the correct siunitx command to properly typeset the number
+    *v* with uncertainty *dv* and optional siunitx unit expression
+    *siunit*.
+
+    Return the string containing the LaTeX macro which typesets the
+    number correctly. Requires ``\\usepackage{siunitx}``.
+    """
+    numeric = siunitx_number(error_rounding(v, dv, force_digits=None))
+    if siunit:
+        return r"\SI{"+numeric+"}{"+siunit+"}"
+    else:
+        return r"\num{"+numeric+"}"
+
+def siunitx_rounded_number(v, dv):
+    return siunitx_number(error_rounding(v, dv))
