@@ -143,7 +143,7 @@ def siunitx_number(vdv):
     """
     return "{} +- {}".format(*vdv)
 
-def siunitx_rounding(v, dv, siunit=None, force_digits=None):
+def siunitx_rounding(v, dv, siunit=None, force_digits=None, suggest_digits=None):
     """
     Produce the correct siunitx command to properly typeset the number
     *v* with uncertainty *dv* and optional siunitx unit expression
@@ -152,11 +152,18 @@ def siunitx_rounding(v, dv, siunit=None, force_digits=None):
     Return the string containing the LaTeX macro which typesets the
     number correctly. Requires ``\\usepackage{siunitx}``.
     """
-    numeric = siunitx_number(error_rounding(v, dv, force_digits=None))
-    if siunit:
-        return r"\SI{"+numeric+"}{"+siunit+"}"
+    if math.isnan(dv):
+        numeric = digit_rounding(v, force_digits or suggest_digits or 3)
+        if siunit:
+            return r"\SI{"+numeric+"}{"+siunit+"}"
+        else:
+            return r"\num{"+numeric+"}"
     else:
-        return r"\num{"+numeric+"}"
+        numeric = siunitx_number(error_rounding(v, dv, force_digits=force_digits))
+        if siunit:
+            return r"\SI{"+numeric+"}{"+siunit+"}"
+        else:
+            return r"\num{"+numeric+"}"
 
 def siunitx_rounded_number(v, dv):
     return siunitx_number(error_rounding(v, dv))
